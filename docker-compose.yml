@@ -1,0 +1,22 @@
+services:
+  fhir-server:
+    image: hapiproject/hapi:latest
+    container_name: hapi-sandbox
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    environment:
+      # Tell Spring Boot to load config from the mounted file.
+      - SPRING_CONFIG_LOCATION=file:/config/application.yaml
+    volumes:
+      # Your editable HAPI configuration. Edit ./config/application.yaml on the host
+      # and restart the container (docker compose restart fhir-server) to apply.
+      - ./config/application.yaml:/config/application.yaml:ro
+      # H2 database files persist here between restarts. Delete this folder to reset.
+      - ./data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/fhir/metadata >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s

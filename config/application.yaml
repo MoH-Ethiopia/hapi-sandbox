@@ -1,0 +1,77 @@
+spring:
+  main:
+    allow-circular-references: true
+  flyway:
+    enabled: false
+    baselineOnMigrate: true
+    check-location: false
+  datasource:
+    # Persistent H2 file DB. The /data dir is bind-mounted from ./data on the host.
+    # Switch to Postgres by replacing this whole block; see the commented sample below.
+    url: 'jdbc:h2:file:/data/h2;DB_CLOSE_DELAY=-1'
+    username: sa
+    password: ''
+    driverClassName: org.h2.Driver
+    max-active: 15
+  jpa:
+    properties:
+      hibernate.format_sql: false
+      hibernate.show_sql: false
+      hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirH2Dialect
+      hibernate.search.enabled: false
+
+server:
+  # Internal container port. The host port (8090 by default) is set in docker-compose.yml.
+  port: 8080
+  servlet:
+    context-path: /
+
+hapi:
+  fhir:
+    fhir_version: R4
+    server_name: HAPI Sandbox
+    # Canonical URL clients see in CapabilityStatement / references. Must reflect the
+    # host-side address (port 8090 = the host mapping in docker-compose.yml).
+    server_address: http://localhost:8090/fhir
+
+    allow_multiple_delete: true
+    allow_external_references: true
+    expunge_enabled: true
+    reuse_cached_search_results_millis: -1
+    install_transitive_dependencies: true
+    openapi_enabled: true
+    ig_runtime_upload_enabled: true
+
+    cors:
+      allow_Credentials: true
+      allowed_origin_patterns:
+        - "http://localhost:*"
+
+    cr:
+      enabled: true
+
+    implementationguides:
+      fhir_r4_core:
+        name: hl7.fhir.r4.core
+        version: 4.0.1
+        url: http://hl7.org/fhir/R4/hl7.fhir.r4.core.tgz
+
+    # custom_content_path / app_content_path are intentionally NOT set.
+    # The current hapiproject/hapi:latest image has a bug: CustomContentFilesConfigurer
+    # strips the trailing slash from the path, and the newer Spring Boot then rejects
+    # the resulting resource location ("Resource location does not end with slash").
+    # Workaround if you need them: use a double trailing slash, e.g.
+    #   custom_content_path: /custom//
+    #   app_content_path: /apps//
+    # and mount the corresponding host folders into /custom and /apps in docker-compose.yml.
+
+# ---- Postgres sample (uncomment and add a postgres service to docker-compose.yml) ----
+# spring:
+#   datasource:
+#     url: jdbc:postgresql://hapi-db:5432/hapi
+#     username: hapi
+#     password: hapi
+#     driverClassName: org.postgresql.Driver
+#   jpa:
+#     properties:
+#       hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgres94Dialect
