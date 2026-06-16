@@ -1,0 +1,28 @@
+{
+	# Used only when {$DOMAIN} is a public name (Let's Encrypt). Ignored for localhost.
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	# --- Validation routing SEAM ------------------------------------------
+	# Iteration 1: forward to HAPI's system-level $validate (accepts a Bundle
+	# OR a single resource; ?profile=... is preserved). Iteration 2 swaps this
+	# reverse_proxy target for the Karate/report test-harness, which itself
+	# calls HAPI $validate.
+	handle /validate* {
+		rewrite * /fhir/$validate?{query}
+		reverse_proxy fhir-server:8080
+	}
+
+	# --- FHIR API ---------------------------------------------------------
+	handle /fhir/* {
+		reverse_proxy fhir-server:8080
+	}
+
+	# Convenience: bare root -> FHIR base.
+	handle / {
+		redir /fhir/ 302
+	}
+}

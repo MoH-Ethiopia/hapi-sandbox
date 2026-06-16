@@ -3,11 +3,20 @@ services:
     image: hapiproject/hapi:latest
     container_name: hapi-sandbox
     restart: unless-stopped
+    # Loopback-only debug port for direct (non-TLS) HAPI access. Safe locally
+    # AND in prod: bound to 127.0.0.1, so it is reachable only on the host /
+    # via SSH tunnel, never from the internet. Caddy is the only public listener.
     ports:
-      - "8090:8080"
+      - "127.0.0.1:${HAPI_DEBUG_PORT:-8090}:8080"
+    env_file:
+      - .env
     environment:
       # Tell Spring Boot to load config from the mounted file.
       - SPRING_CONFIG_LOCATION=file:/config/application.yaml
+      # Public base URL so CapabilityStatement / paging links / Location headers
+      # are correct now that HAPI runs behind Caddy (which terminates TLS).
+      # Spring relaxed-binding maps this env var onto hapi.fhir.server_address.
+      - HAPI_FHIR_SERVER_ADDRESS=https://${DOMAIN}/fhir
     volumes:
       # Your editable HAPI configuration. Edit ./config/application.yaml on the host
       # and restart the container (docker compose restart fhir-server) to apply.
@@ -20,3 +29,31 @@ services:
       timeout: 5s
       retries: 20
       start_period: 90s
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: hapi-caddy
+    restart: unless-stopped
+    # Caddy is the only public listener. 80 is required for the ACME HTTP-01
+    # challenge and the HTTP->HTTPS redirect; 443 (+UDP for HTTP/3) serves HTTPS.
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    env_file:
+      - .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # ACME account keys + issued certs MUST persist, or every recreate
+      # re-requests certs and risks hitting Let's Encrypt rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      # Wait out HAPI's cold start (it loads the r4.core IG, ~60-90s) so Caddy
+      # doesn't front a 502 during boot.
+      fhir-server:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:
