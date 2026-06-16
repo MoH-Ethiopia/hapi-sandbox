@@ -1,0 +1,4 @@
+{
+  "_comment": "Default ET profile to validate each resourceType against. A resource's own meta.profile[0] wins over this table; types absent here validate against base FHIR. Add entries as the IG grows. Types with many profiles (e.g. Observation) are intentionally omitted — clients declare meta.profile.",
+  "Patient": "http://fhir.et/core/StructureDefinition/ETPatient"
+}

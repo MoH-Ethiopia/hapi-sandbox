@@ -30,20 +30,46 @@ hapi:
   fhir:
     fhir_version: R4
     server_name: HAPI Sandbox
-    # Canonical URL clients see in CapabilityStatement / references. Must reflect the
-    # host-side address (port 8090 = the host mapping in docker-compose.yml).
-    server_address: http://localhost:8090/fhir
+    # server_address is intentionally NOT hardcoded here. HAPI now runs behind a
+    # Caddy reverse proxy that terminates TLS (see docker-compose.yml + Caddyfile),
+    # so the public base URL is injected at runtime via the HAPI_FHIR_SERVER_ADDRESS
+    # env var (= https://${DOMAIN}/fhir, from .env) — Spring relaxed-binding maps it
+    # onto this property. This keeps CapabilityStatement / paging links / Location
+    # headers pointing at the public HTTPS base. Don't set it here, or you'd pin a
+    # value that diverges from .env. (The bind-mounted YAML is NOT ${...}-interpolated
+    # by docker-compose, which is why this is driven by an env var instead.)
 
     allow_multiple_delete: true
     allow_external_references: true
     expunge_enabled: true
     reuse_cached_search_results_millis: -1
-    install_transitive_dependencies: true
+    # false: install only the IGs listed below, not their transitive dependencies.
+    # et.fhir.core declares 8 deps (hl7.terminology, uv.*, smart.who.int.base); we
+    # don't want HAPI fetching all of them from the registry on every boot.
+    # ETPatient validation needs only ETPatient + its local CodeSystems/ValueSets
+    # (all inside et.fhir.core) plus base R4. Add specific deps here if a profile
+    # we validate actually requires them.
+    install_transitive_ig_dependencies: false
     openapi_enabled: true
     ig_runtime_upload_enabled: true
+    # The ZW IGs are ci-builds whose resources are still status=draft; without this,
+    # the package installer skips every non-active resource.
+    validate_resource_status_for_package_upload: false
+
+    # Validate incoming writes so non-conformant payloads are rejected with an
+    # OperationOutcome (the Lab Order/Result Repository actor obligation in the
+    # ZW Lab IG).
+    validation:
+      requests_enabled: true
+      responses_enabled: false
 
     cors:
       allow_Credentials: true
+      # CORS only affects browsers (not curl / server-to-server callers), so it is
+      # not needed for iteration-1 testing. A browser UI served from the public
+      # origin will need "https://<your-domain>" added below (or set via the
+      # HAPI_FHIR_CORS_ALLOWED_ORIGIN_PATTERNS env var so it follows ${DOMAIN}).
+      # Keep allow_Credentials with explicit patterns — do not use "*".
       allowed_origin_patterns:
         - "http://localhost:*"
 
@@ -54,7 +80,19 @@ hapi:
       fhir_r4_core:
         name: hl7.fhir.r4.core
         version: 4.0.1
-        url: http://hl7.org/fhir/R4/hl7.fhir.r4.core.tgz
+        packageUrl: http://hl7.org/fhir/R4/hl7.fhir.r4.core.tgz
+      # Ethiopia base IG. Defaults to the published DEV BUILD on GitHub Pages, so
+      # the sandbox targets the same package everything else references. Source is
+      # env-switchable via these ${VAR:default} placeholders (Spring resolves them):
+      #   DEFAULT:  https://moh-ethiopia.github.io/ETBase/package.tgz  (dev build)
+      #   OFFLINE:  set ET_IG_PACKAGE_URL=file:///igs/et.fhir.core.tgz + ET_IG_VERSION=dev
+      #             and build the tgz via harness/scripts/refresh-core-ig.sh
+      et_core:
+        name: et.fhir.core
+        version: ${ET_IG_VERSION:0.9.0}
+        packageUrl: ${ET_IG_PACKAGE_URL:https://moh-ethiopia.github.io/ETBase/package.tgz}
+        installMode: STORE_AND_INSTALL
+
 
     # custom_content_path / app_content_path are intentionally NOT set.
     # The current hapiproject/hapi:latest image has a bug: CustomContentFilesConfigurer
