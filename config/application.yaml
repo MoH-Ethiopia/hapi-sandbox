@@ -81,17 +81,16 @@ hapi:
         name: hl7.fhir.r4.core
         version: 4.0.1
         packageUrl: http://hl7.org/fhir/R4/hl7.fhir.r4.core.tgz
-      # Ethiopia base IG. Source is env-switchable (Spring resolves these
-      # ${VAR:default} placeholders), so going from the local dev build to the
-      # published package is a one-line .env change, no edit here:
-      #   LOCAL (default): build ./igs/et.fhir.core.tgz via
-      #                    harness/scripts/refresh-core-ig.sh (gitignored artifact)
-      #   PUBLISHED:       set ET_IG_PACKAGE_URL=https://fhir.et/core/package.tgz
-      #                    and ET_IG_VERSION=<published version> in .env
+      # Ethiopia base IG. Defaults to the published DEV BUILD on GitHub Pages, so
+      # the sandbox targets the same package everything else references. Source is
+      # env-switchable via these ${VAR:default} placeholders (Spring resolves them):
+      #   DEFAULT:  https://moh-ethiopia.github.io/ETBase/package.tgz  (dev build)
+      #   OFFLINE:  set ET_IG_PACKAGE_URL=file:///igs/et.fhir.core.tgz + ET_IG_VERSION=dev
+      #             and build the tgz via harness/scripts/refresh-core-ig.sh
       et_core:
         name: et.fhir.core
-        version: ${ET_IG_VERSION:dev}
-        packageUrl: ${ET_IG_PACKAGE_URL:file:///igs/et.fhir.core.tgz}
+        version: ${ET_IG_VERSION:0.9.0}
+        packageUrl: ${ET_IG_PACKAGE_URL:https://moh-ethiopia.github.io/ETBase/package.tgz}
         installMode: STORE_AND_INSTALL
 
 
