@@ -1,0 +1,98 @@
+{
+  "info": {
+    "name": "ET FHIR Showcase",
+    "description": "Demo requests for the Ethiopia FHIR validation sandbox. Set the `host` variable (default https://localhost). $validate, POST with/without profile validation, and the conformance interceptor.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    { "key": "host", "value": "https://localhost" },
+    { "key": "baseUrl", "value": "{{host}}/fhir" },
+    { "key": "etPatient", "value": "http://fhir.et/core/StructureDefinition/ETPatient" }
+  ],
+  "item": [
+    {
+      "name": "1 — $validate",
+      "item": [
+        {
+          "name": "Validate Patient vs ETPatient — GOOD (expect 0 errors)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/fhir+json" }],
+            "url": {
+              "raw": "{{baseUrl}}/Patient/$validate?profile={{etPatient}}",
+              "host": ["{{baseUrl}}"], "path": ["Patient", "$validate"],
+              "query": [{ "key": "profile", "value": "{{etPatient}}" }]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"resourceType\": \"Patient\",\n  \"meta\": { \"profile\": [\"http://fhir.et/core/StructureDefinition/ETPatient\"] },\n  \"identifier\": [{ \"system\": \"http://id.gov.et/nationalidentifier\", \"value\": \"ET-987654321\" }],\n  \"name\": [{ \"given\": [\"Abebe\"], \"family\": \"Challa\" }],\n  \"gender\": \"male\",\n  \"maritalStatus\": { \"coding\": [{ \"system\": \"http://terminology.hl7.org/CodeSystem/v3-MaritalStatus\", \"code\": \"M\" }] }\n}" },
+            "description": "Returns an OperationOutcome. A conformant Patient → no error/fatal issues (HTTP 200)."
+          }
+        },
+        {
+          "name": "Validate Patient vs ETPatient — BAD (expect errors)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/fhir+json" }],
+            "url": {
+              "raw": "{{baseUrl}}/Patient/$validate?profile={{etPatient}}",
+              "host": ["{{baseUrl}}"], "path": ["Patient", "$validate"],
+              "query": [{ "key": "profile", "value": "{{etPatient}}" }]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"resourceType\": \"Patient\",\n  \"gender\": \"male\",\n  \"maritalStatus\": { \"coding\": [{ \"system\": \"http://example.org/not-a-real-system\", \"code\": \"BOGUS\" }] }\n}" },
+            "description": "Marital status outside the required ETMaritalStatusVS → error/fatal issues (HTTP 422)."
+          }
+        },
+        {
+          "name": "Validate transaction Bundle",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/fhir+json" }],
+            "url": { "raw": "{{baseUrl}}/Bundle/$validate", "host": ["{{baseUrl}}"], "path": ["Bundle", "$validate"] },
+            "body": { "mode": "raw", "raw": "{\n  \"resourceType\": \"Bundle\",\n  \"type\": \"transaction\",\n  \"entry\": [\n    { \"fullUrl\": \"urn:uuid:11111111-1111-4111-8111-111111111111\", \"resource\": { \"resourceType\": \"Patient\", \"meta\": { \"profile\": [\"http://fhir.et/core/StructureDefinition/ETPatient\"] }, \"identifier\": [{ \"system\": \"http://id.gov.et/nationalidentifier\", \"value\": \"MD-1\" }], \"name\": [{ \"family\": \"Challa\" }], \"gender\": \"male\" }, \"request\": { \"method\": \"POST\", \"url\": \"Patient\" } }\n  ]\n}" },
+            "description": "HAPI validates the bundle and each entry against its meta.profile."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 — POST with vs without profile validation",
+      "item": [
+        {
+          "name": "POST Patient WITH meta.profile (HAPI validates → rejects bad)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/fhir+json" }],
+            "url": { "raw": "{{baseUrl}}/Patient", "host": ["{{baseUrl}}"], "path": ["Patient"] },
+            "body": { "mode": "raw", "raw": "{\n  \"resourceType\": \"Patient\",\n  \"meta\": { \"profile\": [\"http://fhir.et/core/StructureDefinition/ETPatient\"] },\n  \"gender\": \"male\",\n  \"maritalStatus\": { \"coding\": [{ \"system\": \"http://example.org/not-a-real-system\", \"code\": \"BOGUS\" }] }\n}" },
+            "description": "With validation-on-write + meta.profile=ETPatient, HAPI rejects this non-conformant write (422)."
+          }
+        },
+        {
+          "name": "POST Patient WITHOUT meta.profile (validated vs base only → accepted)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/fhir+json" }],
+            "url": { "raw": "{{baseUrl}}/Patient", "host": ["{{baseUrl}}"], "path": ["Patient"] },
+            "body": { "mode": "raw", "raw": "{\n  \"resourceType\": \"Patient\",\n  \"gender\": \"male\",\n  \"maritalStatus\": { \"coding\": [{ \"system\": \"http://example.org/not-a-real-system\", \"code\": \"BOGUS\" }] }\n}" },
+            "description": "No meta.profile → HAPI validates against base Patient only; the same body is accepted (201). Shows why profiles + the interceptor matter."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 — Conformance interceptor",
+      "item": [
+        {
+          "name": "POST resource/bundle to /intercept",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/fhir+json" }],
+            "url": { "raw": "{{host}}/intercept", "host": ["{{host}}"], "path": ["intercept"] },
+            "body": { "mode": "raw", "raw": "{\n  \"resourceType\": \"Patient\",\n  \"meta\": { \"profile\": [\"http://fhir.et/core/StructureDefinition/ETPatient\"] },\n  \"identifier\": [{ \"system\": \"http://id.gov.et/nationalidentifier\", \"value\": \"ET-1\" }],\n  \"name\": [{ \"family\": \"Challa\" }],\n  \"gender\": \"male\"\n}" },
+            "description": "The interceptor validates, records the verdict, and forwards. Read the X-ET-Validation and X-ET-Validation-Report response headers."
+          }
+        }
+      ]
+    }
+  ]
+}

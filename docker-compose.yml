@@ -82,8 +82,9 @@ services:
       - .env
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # Static actor simulators, served same-origin at /sim (so browser fetch to
-      # /intercept has no cross-origin/cert friction).
+      # Showcase dashboard (/docs) and static actor simulators (/sim), served
+      # same-origin so browser fetches to /intercept have no cross-origin/cert friction.
+      - ./docs:/srv/docs:ro
       - ./harness/simulator:/srv/sim:ro
       # ACME account keys + issued certs MUST persist, or every recreate
       # re-requests certs and risks hitting Let's Encrypt rate limits.

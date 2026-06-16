@@ -30,6 +30,12 @@
 		reverse_proxy interceptor:8080
 	}
 
+	# --- Showcase dashboard (static) --------------------------------------
+	handle_path /docs* {
+		root * /srv/docs
+		file_server browse
+	}
+
 	# --- Actor simulators (static, same-origin with /intercept) -----------
 	handle_path /sim* {
 		root * /srv/sim
@@ -48,8 +54,6 @@
 		}
 	}
 
-	# Convenience: bare root -> FHIR base.
-	handle / {
-		redir /fhir/ 302
-	}
+	# Convenience: bare root -> showcase dashboard.
+	redir / /docs/ 302
 }
