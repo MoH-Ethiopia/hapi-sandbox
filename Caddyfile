@@ -7,18 +7,31 @@
 	encode gzip
 
 	# --- Validation routing SEAM ------------------------------------------
-	# Iteration 1: forward to HAPI's system-level $validate (accepts a Bundle
-	# OR a single resource; ?profile=... is preserved). Iteration 2 swaps this
-	# reverse_proxy target for the Karate/report test-harness, which itself
-	# calls HAPI $validate.
-	handle /validate* {
-		rewrite * /fhir/$validate?{query}
+	# HAPI's $validate is TYPE-level (system-level /fhir/$validate is NOT
+	# supported), so we map:
+	#   POST /validate/{ResourceType}  -> /fhir/{ResourceType}/$validate
+	#   POST /validate  (or /validate/) -> /fhir/Bundle/$validate   (headline case)
+	# ?profile=... is preserved. Iteration 2 swaps these reverse_proxy targets
+	# for the Karate/report test-harness, which itself calls HAPI $validate.
+	@validate path /validate /validate/ /validate/*
+	handle @validate {
+		@typed path_regexp vt ^/validate/([A-Za-z]+)/?$
+		rewrite @typed /fhir/{re.vt.1}/$validate?{query}
+		@bare path /validate /validate/
+		rewrite @bare /fhir/Bundle/$validate?{query}
 		reverse_proxy fhir-server:8080
 	}
 
 	# --- FHIR API ---------------------------------------------------------
 	handle /fhir/* {
-		reverse_proxy fhir-server:8080
+		reverse_proxy fhir-server:8080 {
+			# Active upstream health check (the distroless HAPI image can't run
+			# its own container healthcheck). While HAPI is cold-starting/down
+			# Caddy returns 503 instead of a raw 502, and auto-recovers.
+			health_uri /fhir/metadata
+			health_interval 15s
+			health_timeout 5s
+		}
 	}
 
 	# Convenience: bare root -> FHIR base.

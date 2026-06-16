@@ -23,12 +23,10 @@ services:
       - ./config/application.yaml:/config/application.yaml:ro
       # H2 database files persist here between restarts. Delete this folder to reset.
       - ./data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/fhir/metadata >/dev/null || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-      start_period: 90s
+    # No container healthcheck: the hapiproject/hapi image is distroless (no
+    # shell, no curl/wget), so a CMD/CMD-SHELL probe can't run inside it. Caddy
+    # health-checks the upstream over HTTP instead (see the caddy service), and
+    # we gate startup on service_started + reverse_proxy retries.
 
   caddy:
     image: caddy:2-alpine
@@ -49,10 +47,11 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      # Wait out HAPI's cold start (it loads the r4.core IG, ~60-90s) so Caddy
-      # doesn't front a 502 during boot.
-      fhir-server:
-        condition: service_healthy
+      # service_started (not service_healthy): the distroless HAPI image can't
+      # run a container healthcheck. Caddy starts as soon as HAPI's container
+      # starts; during HAPI's ~60-90s cold start (r4.core IG load) requests to
+      # /fhir/* get a brief 502 until reverse_proxy's upstream comes up.
+      - fhir-server
 
 volumes:
   caddy_data:
