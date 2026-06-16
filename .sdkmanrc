@@ -1,0 +1,3 @@
+# Pin the JDK for the local Karate harness / IG tooling (run: sdk env). Java 17+
+# is required; this is the version verified in this workspace.
+java=21.0.5-tem
