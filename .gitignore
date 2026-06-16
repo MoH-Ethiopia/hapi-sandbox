@@ -6,3 +6,7 @@ data/
 
 # Local per-deployment config (committed as .env.example instead)
 .env
+
+# IG package build artifacts mounted into HAPI (the dir is kept via igs/.gitkeep).
+# Rebuild with harness/scripts/refresh-core-ig.sh, or use the published packageUrl.
+igs/*.tgz

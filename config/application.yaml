@@ -43,7 +43,13 @@ hapi:
     allow_external_references: true
     expunge_enabled: true
     reuse_cached_search_results_millis: -1
-    install_transitive_ig_dependencies: true
+    # false: install only the IGs listed below, not their transitive dependencies.
+    # et.fhir.core declares 8 deps (hl7.terminology, uv.*, smart.who.int.base); we
+    # don't want HAPI fetching all of them from the registry on every boot.
+    # ETPatient validation needs only ETPatient + its local CodeSystems/ValueSets
+    # (all inside et.fhir.core) plus base R4. Add specific deps here if a profile
+    # we validate actually requires them.
+    install_transitive_ig_dependencies: false
     openapi_enabled: true
     ig_runtime_upload_enabled: true
     # The ZW IGs are ci-builds whose resources are still status=draft; without this,
@@ -75,11 +81,18 @@ hapi:
         name: hl7.fhir.r4.core
         version: 4.0.1
         packageUrl: http://hl7.org/fhir/R4/hl7.fhir.r4.core.tgz
-      # fhir_zw_core:
-      #   name: zw.fhir.ig.core
-      #   version: 0.1.0
-      #   packageUrl: https://mohcc.github.io/fhir-zw-core-ig/package.tgz
-      #   installMode: STORE_AND_INSTALL
+      # Ethiopia base IG. Source is env-switchable (Spring resolves these
+      # ${VAR:default} placeholders), so going from the local dev build to the
+      # published package is a one-line .env change, no edit here:
+      #   LOCAL (default): build ./igs/et.fhir.core.tgz via
+      #                    harness/scripts/refresh-core-ig.sh (gitignored artifact)
+      #   PUBLISHED:       set ET_IG_PACKAGE_URL=https://fhir.et/core/package.tgz
+      #                    and ET_IG_VERSION=<published version> in .env
+      et_core:
+        name: et.fhir.core
+        version: ${ET_IG_VERSION:dev}
+        packageUrl: ${ET_IG_PACKAGE_URL:file:///igs/et.fhir.core.tgz}
+        installMode: STORE_AND_INSTALL
 
 
     # custom_content_path / app_content_path are intentionally NOT set.

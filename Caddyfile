@@ -22,6 +22,14 @@
 		reverse_proxy fhir-server:8080
 	}
 
+	# --- Conformance interceptor ------------------------------------------
+	# POST any FHIR resource here -> validated against its ET profile, verdict
+	# returned in the OperationOutcome + X-ET-Validation header. The Karate mock
+	# ignores the path (it dispatches on the body), so prefix-stripping is fine.
+	handle_path /intercept* {
+		reverse_proxy interceptor:8080
+	}
+
 	# --- FHIR API ---------------------------------------------------------
 	handle /fhir/* {
 		reverse_proxy fhir-server:8080 {

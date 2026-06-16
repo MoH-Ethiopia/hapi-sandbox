@@ -28,6 +28,11 @@ services:
       - ./config/application.yaml:/config/application.yaml:ro
       # H2 database files persist here between restarts. Delete this folder to reset.
       - ./data:/data
+      # Local IG packages dir, loaded via hapi.fhir.implementationguides when
+      # ET_IG_PACKAGE_URL is a file:// URL (the default). Build the tgz with
+      # harness/scripts/refresh-core-ig.sh. In published mode (https packageUrl)
+      # this dir is simply unused.
+      - ./igs:/igs:ro
     # Green when /fhir/metadata answers. Uses the static busybox added by the
     # Dockerfile (the base image has no shell/curl/wget). start_period covers
     # HAPI's ~60-90s cold start (r4.core IG load); failures before then don't count.
@@ -37,6 +42,27 @@ services:
       timeout: 10s
       retries: 5
       start_period: 120s
+
+  interceptor:
+    # Always-on conformance proxy: Karate mock validating POSTed resources
+    # against their ET profile via HAPI's $validate. Reachable at Caddy /intercept/*.
+    build:
+      context: ./harness/interceptor
+    image: hapi-sandbox-interceptor:local
+    container_name: hapi-interceptor
+    restart: unless-stopped
+    environment:
+      - ET_TARGET=http://fhir-server:8080/fhir
+    depends_on:
+      fhir-server:
+        condition: service_healthy
+    healthcheck:
+      # eclipse-temurin (Ubuntu) ships bash; /dev/tcp checks the mock is listening.
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   caddy:
     image: caddy:2-alpine
@@ -61,6 +87,8 @@ services:
       # only comes up once /fhir/metadata answers (no cold-start 502 window).
       fhir-server:
         condition: service_healthy
+      interceptor:
+        condition: service_started
 
 volumes:
   caddy_data:
