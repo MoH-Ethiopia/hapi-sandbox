@@ -10,3 +10,7 @@ data/
 # IG package build artifacts mounted into HAPI (the dir is kept via igs/.gitkeep).
 # Rebuild with harness/scripts/refresh-core-ig.sh, or use the published packageUrl.
 igs/*.tgz
+
+# Karate harness build artifacts
+harness/karate-*.jar
+harness/target/
