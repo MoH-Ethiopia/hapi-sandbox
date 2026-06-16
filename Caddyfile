@@ -30,6 +30,12 @@
 		reverse_proxy interceptor:8080
 	}
 
+	# --- Actor simulators (static, same-origin with /intercept) -----------
+	handle_path /sim* {
+		root * /srv/sim
+		file_server browse
+	}
+
 	# --- FHIR API ---------------------------------------------------------
 	handle /fhir/* {
 		reverse_proxy fhir-server:8080 {
