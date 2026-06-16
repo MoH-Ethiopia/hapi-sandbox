@@ -57,6 +57,8 @@ services:
       # Mount the feature + profile map so edits apply on `restart` (no rebuild).
       - ./harness/interceptor/et-interceptor.feature:/app/et-interceptor.feature:ro
       - ./harness/interceptor/profileFor.json:/app/profileFor.json:ro
+      # Session output (verdict reports + seen patients) for test-session.sh.
+      - ./harness/target/sessions:/sessions
     depends_on:
       fhir-server:
         condition: service_healthy

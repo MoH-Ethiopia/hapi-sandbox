@@ -17,12 +17,25 @@ Background:
   * configure cors = true
   * def System = Java.type('java.lang.System')
   * def target = System.getProperty('et.target', 'http://fhir-server:8080/fhir')
-  * def port = System.getProperty('et.port', '8080')
+  * def sessionDir = System.getProperty('et.sessionDir', '/sessions')
   * def profileFor = read('profileFor.json')
-  * def reportsFile = 'session-' + port + '-validation-reports.json'
-  * def patientsFile = 'session-' + port + '-patients.txt'
+  * def reportsFile = sessionDir + '/validation-reports.json'
+  * def patientsFile = sessionDir + '/patients.txt'
   * def valReports = []
   * def seenPatients = {}
+  * def NioFiles = Java.type('java.nio.file.Files')
+  * def NioPaths = Java.type('java.nio.file.Paths')
+  * def Utf8 = Java.type('java.nio.charset.StandardCharsets').UTF_8
+  * def writeFile =
+    """
+    function(path, content) {
+      try {
+        var p = NioPaths.get(path);
+        if (p.getParent() != null) NioFiles.createDirectories(p.getParent());
+        NioFiles.write(p, content.getBytes(Utf8));
+      } catch (e) { karate.log('session write failed for ' + path + ': ' + e); }
+    }
+    """
   * def errorIssues =
     """
     function(oo) {
@@ -42,7 +55,7 @@ Background:
     function(action, subject, profile, issues) {
       var id = 'r' + (valReports.length + 1);
       valReports.push({ id: id, action: action, subject: subject, profile: profile, errors: issues.length, issues: issues });
-      karate.write(JSON.stringify(valReports, null, 2), reportsFile);
+      writeFile(reportsFile, JSON.stringify(valReports, null, 2));
       return id;
     }
     """
@@ -60,7 +73,7 @@ Background:
         }
       }
       var keys = []; for (var k in seenPatients) keys.push(k);
-      if (keys.length) karate.write(keys.join('\n'), patientsFile);
+      if (keys.length) writeFile(patientsFile, keys.join('\n'));
     }
     """
   * def headerReport = function(issues) { return encodeURIComponent(JSON.stringify(issues)) }
