@@ -1,0 +1,32 @@
+{
+  "resourceType": "Patient",
+  "id": "ExamplePatientBad",
+  "meta": {
+    "profile": [
+      "http://fhir.et/core/StructureDefinition/ETPatient"
+    ]
+  },
+  "identifier": [
+    {
+      "system": "http://id.gov.et/nationalidentifier",
+      "value": "ET-000000000"
+    }
+  ],
+  "name": [
+    {
+      "given": [
+        "Test"
+      ]
+    }
+  ],
+  "gender": "male",
+  "maritalStatus": {
+    "coding": [
+      {
+        "code": "BOGUS",
+        "system": "http://example.org/not-a-real-system",
+        "display": "Not a valid marital status"
+      }
+    ]
+  }
+}

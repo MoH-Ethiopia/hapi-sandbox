@@ -20,16 +20,21 @@ mkdir -p target
 PKG="$(scripts/resolve-test-ig.sh)"
 echo "Fixtures from: $PKG"
 
-# Build the fixture manifest from the IG package's example instances.
-python3 - "$PKG" interceptor/profileFor.json > target/fixtures.json <<'PY'
+# Build the fixture manifest from the IG package's example instances PLUS the
+# harness-local invalid (negative) fixtures. Valid fixtures ship in the test IG;
+# intentionally-invalid ones live in fixtures/invalid/ as raw JSON (SUSHI would
+# fail the IG build on them — see fixtures/invalid/README.md, ZW-kit pattern).
+python3 - "$PKG" interceptor/profileFor.json "$PWD/fixtures/invalid" > target/fixtures.json <<'PY'
 import json, os, sys, glob
-pkg, profile_map_file = sys.argv[1], sys.argv[2]
+pkg, profile_map_file, invalid_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 profiles = {k: v for k, v in json.load(open(profile_map_file)).items() if not k.startswith('_')}
 SKIP = {'ImplementationGuide','CapabilityStatement','StructureDefinition','ValueSet',
         'CodeSystem','SearchParameter','OperationDefinition','Bundle'}
 out = []
-# Examples may be flat (sushi output) or under example/ (IG Publisher package).
-files = glob.glob(os.path.join(pkg, '*.json')) + glob.glob(os.path.join(pkg, 'example', '*.json'))
+# Examples may be flat (sushi output) or under example/ (IG Publisher package);
+# invalid fixtures are raw JSON in the harness.
+files = (glob.glob(os.path.join(pkg, '*.json')) + glob.glob(os.path.join(pkg, 'example', '*.json'))
+         + glob.glob(os.path.join(invalid_dir, '*.json')))
 for f in sorted(files):
     base = os.path.basename(f)
     if base == 'package.json':

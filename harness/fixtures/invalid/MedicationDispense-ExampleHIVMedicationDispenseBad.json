@@ -1,0 +1,15 @@
+{
+  "resourceType": "MedicationDispense",
+  "id": "ExampleHIVMedicationDispenseBad",
+  "meta": {
+    "profile": [
+      "http://fhir.et/hiv/StructureDefinition/hiv-medication-dispense"
+    ]
+  },
+  "medicationCodeableConcept": {
+    "text": "Antiretroviral therapy (ART)"
+  },
+  "subject": {
+    "reference": "Patient/ExampleHIVPatientGood"
+  }
+}
