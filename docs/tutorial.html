@@ -117,6 +117,14 @@ X-ET-Validation-Report: &lt;url-encoded JSON of the issues&gt;</pre>
   <p>A <b>session</b> captures a window of traffic, scores every request, audits what was stored, and
   produces an HTML report — the format used for the showcase and for onboarding a real system.</p>
 
+  <div class="note"><b>Two test modes.</b> This section is the <b>live</b> mode (real/simulated traffic
+  through <code>/intercept</code>). The <b>non-live battery</b> instead replays a fixed set of curated
+  good/bad fixtures with no live traffic — deterministic regression, runs from a laptop or CI against
+  any server:<br>
+  <code>cd harness &amp;&amp; SHR_URL=https://sandbox.fhir.et/fhir ./run-tests.sh</code><br>
+  (fixtures come from the <a href="https://pmanko.github.io/et.fhir.core.test/" target="_blank">et.fhir.core.test</a>
+  IG; good → 0 errors, bad → fails; HTML report under <code>harness/target/</code>.)</div>
+
   <p><b>Step 1 — start it</b> (sandbox operators, in the repo):</p>
 <pre>cd harness
 sdk env                 <span class="c"># Java 21 (per .sdkmanrc)</span>
@@ -144,12 +152,20 @@ sdk env                 <span class="c"># Java 21 (per .sdkmanrc)</span>
   headers (what the simulator shows per submit). The <code>session.html</code> dashboard is the
   per-session rollup of all those calls <i>plus</i> the stored-data audit.</div>
 
-  <h2><span class="n">8</span> Where the rules come from</h2>
-  <p>All profiles, value sets, and code systems are the official Ethiopia Base IG —
-  <a href="https://moh-ethiopia.github.io/ETBase/" target="_blank">et.fhir.core</a>. To see what a
-  resource must contain, open that IG and find its profile (e.g.
-  <code>http://fhir.et/core/StructureDefinition/ETPatient</code>). As Ethiopia publishes more IGs,
-  declare the relevant <code>meta.profile</code> and the sandbox validates against it automatically.</p>
+  <h2><span class="n">8</span> The IGs behind the rules</h2>
+  <p>Validation rules come from the official Ethiopia IGs loaded into the sandbox:
+  <a href="https://moh-ethiopia.github.io/ETBase/" target="_blank">et.fhir.core</a> (ETBase, the base),
+  <a href="https://pmanko.github.io/et.fhir.surveillance/" target="_blank">et.fhir.surveillance</a>, and
+  <a href="https://pmanko.github.io/et.fhir.hiv/" target="_blank">et.fhir.hiv</a> — with more added as
+  they're published. A resource's <code>meta.profile</code> selects which profile it's checked against
+  (e.g. an HIV dispense → <code>hiv-medication-dispense</code>, which builds on surveillance → core).
+  The <a href="https://pmanko.github.io/et.fhir.core.test/" target="_blank">et.fhir.core.test</a> IG
+  holds the curated fixtures the non-live battery validates — the harness carries no data itself.</p>
+  <p class="note"><b>Deployed sessions.</b> The interceptor is a <b>Karate mock</b> server and the
+  non-live battery + auditor are <b>Karate test runs</b>. Today a live session against
+  <code>sandbox.fhir.et</code> is driven by an operator running <code>test-session.sh</code> on the
+  host; a hosted <code>/session</code> view (watch a live session in the browser, no local tooling) is
+  the planned next step.</p>
 
 </div>
 </body>

@@ -49,10 +49,12 @@
   <div class="pills" id="status">
     <span class="pill"><span class="dot" id="d-hapi"></span> HAPI <code>/fhir/metadata</code></span>
     <span class="pill"><span class="dot" id="d-int"></span> Interceptor <code>/intercept</code></span>
-    <span class="pill"><span class="dot" id="d-ig"></span> ET IG <span id="ig-ver">et.fhir.core</span></span>
+    <span class="pill"><span class="dot" id="d-ig"></span> IGs loaded <span id="ig-ver">core · surveillance · hiv</span></span>
     <a class="pill" href="/sim/simulator.html"><span class="dot ok"></span> Actor simulator →</a>
-    <a class="pill" href="https://moh-ethiopia.github.io/ETBase/" target="_blank">ETBase IG ↗</a>
-    <a class="pill" href="https://pmanko.github.io/et.fhir.core.test/" target="_blank">Test IG ↗</a>
+    <a class="pill" href="https://moh-ethiopia.github.io/ETBase/" target="_blank">core (ETBase) ↗</a>
+    <a class="pill" href="https://pmanko.github.io/et.fhir.surveillance/" target="_blank">surveillance ↗</a>
+    <a class="pill" href="https://pmanko.github.io/et.fhir.hiv/" target="_blank">hiv ↗</a>
+    <a class="pill" href="https://pmanko.github.io/et.fhir.core.test/" target="_blank">test fixtures IG ↗</a>
   </div>
 
   <h2>Architecture</h2>
@@ -89,8 +91,12 @@
         <text x="850" y="141" text-anchor="middle">HAPI FHIR</text>
         <text x="850" y="157" text-anchor="middle" fill="#5b6571">storage + $validate engine</text>
 
-        <rect x="760" y="40" width="180" height="44" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
-        <text x="850" y="67" text-anchor="middle">et.fhir.core IG loaded</text>
+        <rect x="760" y="4" width="180" height="92" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
+        <text x="850" y="22" text-anchor="middle" font-weight="700">IGs loaded (rules)</text>
+        <text x="850" y="40" text-anchor="middle" fill="#5b6571">et.fhir.core</text>
+        <text x="850" y="56" text-anchor="middle" fill="#5b6571">et.fhir.surveillance</text>
+        <text x="850" y="72" text-anchor="middle" fill="#5b6571">et.fhir.hiv</text>
+        <text x="850" y="88" text-anchor="middle" fill="#5b6571">… more as published</text>
       </g>
       <!-- edges -->
       <g stroke="#8a93a0" fill="none" marker-end="url(#a)">
@@ -102,9 +108,17 @@
         <path d="M660,146 L758,146"/>
         <path d="M660,60 L758,140" stroke-dasharray="4 3"/>
         <path d="M660,215 L758,160"/>
-        <path d="M850,84 L850,118"/>
+        <path d="M850,96 L850,118"/>
       </g>
     </svg>
+  </div>
+
+  <h2>IGs &amp; how testing works</h2>
+  <div class="links">
+    <div class="lk"><b>IGs loaded = the rules</b><div class="d"><code>et.fhir.core</code> (ETBase), <code>et.fhir.surveillance</code>, <code>et.fhir.hiv</code> — and more as Ethiopia publishes them. Loaded into HAPI; a resource's <code>meta.profile</code> picks which one it's validated against (hiv → surveillance → core).</div></div>
+    <div class="lk"><b><a href="https://pmanko.github.io/et.fhir.core.test/" target="_blank">et.fhir.core.test</a> = the data</b><div class="d">A separate fixture IG of curated valid + intentionally-invalid examples. The harness carries no data — the non-live battery validates these fixtures (built in CI, published to Pages).</div></div>
+    <div class="lk"><b>Non-live battery (regression)</b><div class="d"><code>harness/run-tests.sh</code> POSTs each fixture to <code>$validate</code> and asserts good→0 / bad→errors. Runs anywhere against any server: <code>SHR_URL=https://sandbox.fhir.et/fhir ./run-tests.sh</code>.</div></div>
+    <div class="lk"><b>Live session (onboarding)</b><div class="d">Point a real system or the simulator at <code>/intercept</code> — every POST is validated against its ET profile, recorded, and forwarded. Verdicts feed the session dashboard + auditor. The interceptor is a Karate mock; the batch + auditor are Karate test runs.</div></div>
   </div>
 
   <h2>The 12-step run-of-show</h2>
