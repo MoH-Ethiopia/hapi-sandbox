@@ -22,21 +22,19 @@ mkdir -p target
 PKG="$(scripts/resolve-test-ig.sh)"
 echo "Fixtures from: $PKG"
 
-# Build the fixture manifest from the IG package's example instances PLUS the
-# harness-local invalid (negative) fixtures. Valid fixtures ship in the test IG;
-# intentionally-invalid ones live in fixtures/invalid/ as raw JSON (SUSHI would
-# fail the IG build on them — see fixtures/invalid/README.md, ZW-kit pattern).
-python3 - "$PKG" interceptor/profileFor.json "$PWD/fixtures/invalid" > target/fixtures.json <<'PY'
+# Manifest = valid examples from the test IG package + everything under
+# harness/fixtures/ (invalid resources and good/bad bundles, raw JSON — they
+# can't live in the IG; SUSHI fails the build on invalid instances). Bundles
+# POST to Bundle/$validate. expectError is inferred from "bad"/"invalid" in the name.
+python3 - "$PKG" interceptor/profileFor.json "$PWD/fixtures" > target/fixtures.json <<'PY'
 import json, os, sys, glob
-pkg, profile_map_file, invalid_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+pkg, profile_map_file, fixtures_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 profiles = {k: v for k, v in json.load(open(profile_map_file)).items() if not k.startswith('_')}
 SKIP = {'ImplementationGuide','CapabilityStatement','StructureDefinition','ValueSet',
-        'CodeSystem','SearchParameter','OperationDefinition','Bundle'}
+        'CodeSystem','SearchParameter','OperationDefinition'}
 out = []
-# Examples may be flat (sushi output) or under example/ (IG Publisher package);
-# invalid fixtures are raw JSON in the harness.
 files = (glob.glob(os.path.join(pkg, '*.json')) + glob.glob(os.path.join(pkg, 'example', '*.json'))
-         + glob.glob(os.path.join(invalid_dir, '*.json')))
+         + glob.glob(os.path.join(fixtures_dir, '**', '*.json'), recursive=True))
 for f in sorted(files):
     base = os.path.basename(f)
     if base == 'package.json':

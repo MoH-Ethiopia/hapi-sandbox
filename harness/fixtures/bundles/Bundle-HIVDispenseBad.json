@@ -1,0 +1,27 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:11111111-1111-4111-8111-aaaaaaaaaaaa",
+      "resource": {
+        "resourceType": "Patient",
+        "meta": { "profile": ["http://fhir.et/hiv/StructureDefinition/HIVPatient"] },
+        "identifier": [{ "system": "http://ethiori.moh.gov.et/hiv/art-number" }],
+        "name": [{ "family": "Challa" }],
+        "gender": "male"
+      },
+      "request": { "method": "POST", "url": "Patient" }
+    },
+    {
+      "fullUrl": "urn:uuid:33333333-3333-4333-8333-bbbbbbbbbbbb",
+      "resource": {
+        "resourceType": "MedicationDispense",
+        "meta": { "profile": ["http://fhir.et/hiv/StructureDefinition/hiv-medication-dispense"] },
+        "medicationCodeableConcept": { "text": "ART" },
+        "subject": { "reference": "urn:uuid:11111111-1111-4111-8111-aaaaaaaaaaaa" }
+      },
+      "request": { "method": "POST", "url": "MedicationDispense" }
+    }
+  ]
+}
