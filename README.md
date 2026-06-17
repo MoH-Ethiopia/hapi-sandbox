@@ -54,6 +54,30 @@ verdict and audits what was stored against the Ethiopia profiles. Needs Java 17+
   published dev build; set a `file:///igs/et.fhir.core.tgz` URL (built by
   `harness/scripts/refresh-core-ig.sh`) for offline use.
 
+## Deploy (e.g. `sandbox.fhir.et`)
+
+On a server with Docker, a public IP, and ports **80 + 443** open:
+
+1. Point DNS: an `A` record `sandbox.fhir.et` → the server's IP.
+2. Clone the repo, then set `.env`:
+   ```ini
+   DOMAIN=sandbox.fhir.et
+   ACME_EMAIL=ops@fhir.et
+   ```
+   Leave `ET_IG_PACKAGE_URL` unset so it uses the published Ethiopia IG (no local build needed on the server).
+3. `docker compose up -d`
+
+Caddy automatically obtains a Let's Encrypt certificate for the domain. HAPI advertises
+`https://sandbox.fhir.et/fhir` as its base URL, and CORS already allows `https://sandbox.fhir.et`.
+Verify: `curl -sI https://sandbox.fhir.et/fhir/metadata` and open `https://sandbox.fhir.et/docs/`.
+
+> The published Ethiopia IG keeps a fixed `0.9.0` version while it iterates, so to pick up a new
+> build force a reload: `docker compose down && rm -rf data && docker compose up -d`.
+
+## Using it
+See the **[tutorial](docs/tutorial.html)** (served at `/docs/tutorial.html`) for validating
+resources/bundles, the interceptor, Postman, and running a conformance session.
+
 ## Related
 - [`ETBase`](https://moh-ethiopia.github.io/ETBase/) — the official Ethiopia Base IG (`et.fhir.core`).
 - [`et.fhir.core.test`](https://github.com/pmanko/et.fhir.core.test) — conformance test fixtures.

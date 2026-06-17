@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tutorial — Ethiopia FHIR Validation Sandbox</title>
+<style>
+  :root { --bg:#0e0f10; --panel:#17191b; --line:#2a2d30; --txt:#e8e9ea; --muted:#9aa0a6;
+          --ok:#2ea043; --bad:#e5534b; --info:#388bfd; --brand:#7c5cff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14.5px/1.6 -apple-system,Segoe UI,Roboto,sans-serif; }
+  a { color:#79c0ff; text-decoration:none; } a:hover { text-decoration:underline; }
+  code { color:#79c0ff; font-family:ui-monospace,Menlo,monospace; font-size:.9em; }
+  header { padding:20px 26px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:20px; margin:0 0 4px; }
+  header p { margin:0; color:var(--muted); font-size:13px; }
+  .wrap { padding:8px 26px 40px; max-width:880px; margin:0 auto; }
+  h2 { font-size:16px; margin:30px 0 6px; display:flex; gap:9px; align-items:center; }
+  h2 .n { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px;
+          border-radius:7px; background:var(--brand); color:#fff; font-size:12px; font-weight:700; }
+  p.lead { color:#cdd2d6; }
+  pre { background:#0b0c0d; border:1px solid var(--line); border-radius:8px; padding:12px 14px; overflow:auto;
+        font:12.5px/1.5 ui-monospace,Menlo,monospace; color:#cfd3d6; }
+  pre .c { color:#7ee29a; } /* comment */ pre .k { color:#d2a8ff; }
+  .note { background:rgba(56,139,253,.08); border:1px solid #388bfd55; border-radius:8px; padding:10px 13px; color:#cdd2d6; font-size:13px; }
+  .ok { color:#7ee29a; } .bad { color:#ff9b95; }
+  table { border-collapse:collapse; width:100%; margin:8px 0; }
+  th,td { border-bottom:1px solid var(--line); padding:.45rem .7rem; text-align:left; font-size:13px; }
+  th { color:var(--muted); text-transform:uppercase; font-size:.72rem; }
+  .pill { display:inline-block; background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:3px 11px; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Using the Ethiopia FHIR Validation Sandbox</h1>
+  <p>Base URL: <code>https://sandbox.fhir.et</code> · validates against the Ethiopia Base IG (<a href="https://moh-ethiopia.github.io/ETBase/" target="_blank">et.fhir.core</a>) · <a href="/docs/">← dashboard</a></p>
+</header>
+
+<div class="wrap">
+
+  <p class="lead">This sandbox checks whether FHIR resources conform to Ethiopia's official FHIR
+  profiles. Send a resource (or a transaction bundle) and get back an <code>OperationOutcome</code>
+  with any conformance errors. There are three ways in: a raw <code>$validate</code> call, a
+  pass-through <b>interceptor</b>, and a batch test harness.</p>
+
+  <div class="note">Which profile a resource is checked against comes from its own
+  <code>meta.profile</code>. If a resource declares no profile, it's validated against base FHIR R4.
+  Running locally instead of deployed? Use <code>https://localhost</code> and add <code>-k</code> to curl.</div>
+
+  <h2><span class="n">1</span> Validate a single resource</h2>
+  <p>POST the resource to <code>$validate</code> for its type. Use <code>?profile=</code> to assert a
+  specific Ethiopian profile (or rely on the resource's <code>meta.profile</code>).</p>
+<pre><span class="c"># Conformant ETPatient -> 200, no error/fatal issues</span>
+curl -X POST "https://sandbox.fhir.et/fhir/Patient/$validate?profile=http://fhir.et/core/StructureDefinition/ETPatient" \
+  -H "Content-Type: application/fhir+json" \
+  -d '{"resourceType":"Patient","meta":{"profile":["http://fhir.et/core/StructureDefinition/ETPatient"]},
+       "identifier":[{"system":"http://id.gov.et/nationalidentifier","value":"ET-1"}],
+       "name":[{"family":"Challa"}],"gender":"male"}'</pre>
+  <p>A non-conformant resource (e.g. a marital status outside the required Ethiopian value set)
+  comes back <span class="bad">HTTP 422</span> with the failing issues listed in the OperationOutcome.</p>
+
+  <h2><span class="n">2</span> Validate a transaction bundle</h2>
+  <p>POST the whole bundle to <code>Bundle/$validate</code>; each entry is checked against its own
+  <code>meta.profile</code>.</p>
+<pre>curl -X POST "https://sandbox.fhir.et/fhir/Bundle/$validate" \
+  -H "Content-Type: application/fhir+json" -d @bundle.json</pre>
+
+  <h2><span class="n">3</span> Create with validation</h2>
+  <p>The server validates on write. POSTing a resource that declares an Ethiopian
+  <code>meta.profile</code> but doesn't conform is <span class="bad">rejected (422)</span>; a
+  conformant one is stored (201).</p>
+<pre>curl -X POST "https://sandbox.fhir.et/fhir/Patient" \
+  -H "Content-Type: application/fhir+json" -d @patient.json</pre>
+
+  <h2><span class="n">4</span> The conformance interceptor</h2>
+  <p>POST any resource or bundle to <code>/intercept</code>. It validates against the Ethiopian
+  profiles, returns the verdict in response headers, and forwards to the server — so an existing
+  system can be pointed at it unchanged.</p>
+<pre>curl -i -X POST "https://sandbox.fhir.et/intercept" \
+  -H "Content-Type: application/fhir+json" -d @bundle.json
+
+<span class="c"># response headers:</span>
+X-ET-Validation: 0 error(s) in Bundle (3 entries)
+X-ET-Validation-Report: &lt;url-encoded JSON of the issues&gt;</pre>
+  <p>Prefer a UI? Open the <a href="/sim/simulator.html"><b>actor simulator</b></a>, pick a payload
+  (e.g. the medication-dispenser bundle), and submit — you'll see the verdict and per-issue detail.</p>
+
+  <h2><span class="n">5</span> Endpoints at a glance</h2>
+  <table>
+    <tr><th>URL</th><th>What it does</th></tr>
+    <tr><td><code>/fhir/*</code></td><td>Full FHIR API (CRUD, search, <code>$validate</code>, <code>/metadata</code>)</td></tr>
+    <tr><td><code>/fhir/{Type}/$validate</code></td><td>Validate a resource, get an OperationOutcome</td></tr>
+    <tr><td><code>/intercept</code></td><td>Validate → return verdict headers → forward (conformance proxy)</td></tr>
+    <tr><td><code>/sim/simulator.html</code></td><td>Browser actor simulator</td></tr>
+    <tr><td><code>/docs/</code></td><td>Dashboard · <code>/docs/postman/…</code> Postman collection</td></tr>
+  </table>
+
+  <h2><span class="n">6</span> Postman</h2>
+  <p>Import <a href="/docs/postman/ET-FHIR-Showcase.postman_collection.json" download>the collection</a>
+  and set the <code>host</code> variable to <code>https://sandbox.fhir.et</code>. It has ready-made
+  <code>$validate</code> (good/bad), create-with-validation, and interceptor requests.</p>
+
+  <h2><span class="n">7</span> Conformance session (for system integrators)</h2>
+  <p>To test a real system end-to-end, point its FHIR base URL at
+  <code>https://sandbox.fhir.et/intercept</code> and use it normally. The sandbox operators can run a
+  live session that records every verdict and audits what was stored:</p>
+<pre><span class="c"># run by the sandbox team, in the repo:</span>
+cd harness && ./test-session.sh        <span class="c"># live ✓/✗ feed; Ctrl+C → audit + HTML dashboard</span></pre>
+
+  <h2><span class="n">8</span> Where the rules come from</h2>
+  <p>All profiles, value sets, and code systems are the official Ethiopia Base IG —
+  <a href="https://moh-ethiopia.github.io/ETBase/" target="_blank">et.fhir.core</a>. To see what a
+  resource must contain, open that IG and find its profile (e.g.
+  <code>http://fhir.et/core/StructureDefinition/ETPatient</code>). As Ethiopia publishes more IGs,
+  declare the relevant <code>meta.profile</code> and the sandbox validates against it automatically.</p>
+
+</div>
+</body>
+</html>

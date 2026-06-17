@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ethiopia FHIR Validation Sandbox — Showcase</title>
+<title>Ethiopia FHIR Validation Sandbox</title>
 <style>
   :root { --bg:#0e0f10; --panel:#17191b; --panel2:#1d2023; --line:#2a2d30; --txt:#e8e9ea;
           --muted:#9aa0a6; --ok:#2ea043; --bad:#e5534b; --info:#388bfd; --warn:#d29922; --brand:#7c5cff; }
@@ -39,7 +39,7 @@
 </head>
 <body>
 <header>
-  <h1>Ethiopia FHIR Validation Sandbox — Showcase</h1>
+  <h1>Ethiopia FHIR Validation Sandbox</h1>
   <p>Central conformance testing for FHIR against the Ethiopia Base IG (<code>et.fhir.core</code>). One HAPI server (storage + <code>$validate</code> engine), a Caddy gateway, an always-on conformance interceptor, and a Karate test harness.</p>
 </header>
 
@@ -112,6 +112,7 @@
 
   <h2>Tools &amp; resources</h2>
   <div class="links">
+    <a class="lk" href="/docs/tutorial.html"><b>Tutorial →</b><div class="d">How to validate resources/bundles, use the interceptor, and run a session.</div></a>
     <a class="lk" href="/sim/simulator.html"><b>Actor simulator →</b><div class="d">Send Patient/Encounter/MedicationDispense bundles through the interceptor; see the verdict.</div></a>
     <a class="lk" href="/docs/postman/ET-FHIR-Showcase.postman_collection.json" download><b>Postman collection ⤓</b><div class="d">$validate, POST with/without validation, interceptor. Import + set <code>baseUrl</code>.</div></a>
     <a class="lk" href="/fhir/metadata" target="_blank"><b>HAPI CapabilityStatement ↗</b><div class="d">The FHIR server metadata (storage + validation engine).</div></a>

@@ -72,6 +72,8 @@ hapi:
       # Keep allow_Credentials with explicit patterns — do not use "*".
       allowed_origin_patterns:
         - "http://localhost:*"
+        - "https://sandbox.fhir.et"
+        - "https://*.fhir.et"
 
     cr:
       enabled: true
