@@ -4,8 +4,8 @@
 #   ./test-session.sh           # live: fresh session, live feed; Ctrl+C -> audit + dashboard
 #   ./test-session.sh report    # just (re)build the dashboard + audit from the current session
 #
-# Point your system / simulator at the interceptor (default https://localhost/intercept),
-# or open the simulator at https://localhost/sim/simulator.html. Every POST is validated
+# Point your system / simulator at the interceptor (default http://localhost:8095/intercept),
+# or open the simulator at http://localhost:8095/sim/simulator.html. Every POST is validated
 # against the ET profiles on the way through; the interceptor records each verdict and the
 # patients it saw. On exit this audits what got stored and opens an HTML session dashboard.
 set -uo pipefail
@@ -13,7 +13,7 @@ cd "$(dirname "$0")"
 ROOT="$(cd .. && pwd)"
 CMD="${1:-live}"
 LABEL="${LABEL:-session}"
-INTERCEPT_URL="${INTERCEPT_URL:-https://localhost/intercept}"
+INTERCEPT_URL="${INTERCEPT_URL:-http://localhost:8095/intercept}"
 SHR_URL="${SHR_URL:-http://localhost:8090/fhir}"   # where the auditor checks stored data
 KARATE_VERSION="${KARATE_VERSION:-2.0.3}"
 JAR="karate-${KARATE_VERSION}.jar"
@@ -107,7 +107,7 @@ cat <<EOF
 ──────────────────────────────────────────────
  ET conformance session — ${LABEL}
  Point your system / simulator at:  ${INTERCEPT_URL}
-   or open  https://localhost/sim/simulator.html
+   or open  http://localhost:8095/sim/simulator.html
  Stop with Ctrl+C for the audit + dashboard.
 ──────────────────────────────────────────────
 live feed (one line per request):
