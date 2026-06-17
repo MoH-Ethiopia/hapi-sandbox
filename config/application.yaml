@@ -94,6 +94,21 @@ hapi:
         version: ${ET_IG_VERSION:0.9.0}
         packageUrl: ${ET_IG_PACKAGE_URL:https://moh-ethiopia.github.io/ETBase/package.tgz}
         installMode: STORE_AND_INSTALL
+      # Derived demo IGs from the core's disabled (.fshNO) content: surveillance
+      # (extensions) and HIV (HIVPatient w/ required ART number, hiv-encounter,
+      # hiv-medication-dispense). HIV depends on surveillance, surveillance on core.
+      # Default to the published dev builds (GitHub Pages); override to a local
+      # file:///igs/*.tgz build via .env (ET_SURVEILLANCE_PKG_URL / ET_HIV_PKG_URL).
+      et_surveillance:
+        name: et.fhir.surveillance
+        version: ${ET_SURVEILLANCE_VERSION:0.1.0}
+        packageUrl: ${ET_SURVEILLANCE_PKG_URL:https://pmanko.github.io/et.fhir.surveillance/package.tgz}
+        installMode: STORE_AND_INSTALL
+      et_hiv:
+        name: et.fhir.hiv
+        version: ${ET_HIV_VERSION:0.1.0}
+        packageUrl: ${ET_HIV_PKG_URL:https://pmanko.github.io/et.fhir.hiv/package.tgz}
+        installMode: STORE_AND_INSTALL
 
 
     # custom_content_path / app_content_path are intentionally NOT set.
