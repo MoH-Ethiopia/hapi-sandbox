@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ET Conformance — Actor Simulator</title>
+<style>
+  :root { --bg:#0e0f10; --panel:#17191b; --line:#2a2d30; --txt:#e8e9ea; --muted:#9aa0a6;
+          --ok:#2ea043; --bad:#e5534b; --info:#388bfd; --warn:#d29922; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:16px 22px; border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; font-weight:650; }
+  .tag { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:20px; padding:2px 9px; }
+  main { display:grid; grid-template-columns:minmax(360px,1fr) minmax(360px,1fr); gap:18px; padding:18px 22px; }
+  @media (max-width:880px){ main { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .card h2 { font-size:13px; margin:0; padding:11px 14px; border-bottom:1px solid var(--line); color:var(--muted); font-weight:600; letter-spacing:.02em; }
+  .body { padding:14px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
+  select, input[type=text] { width:100%; background:#0e0f10; color:var(--txt); border:1px solid var(--line); border-radius:7px; padding:8px 10px; font-size:13px; }
+  textarea { width:100%; height:340px; background:#0b0c0d; color:#cfd3d6; border:1px solid var(--line); border-radius:7px; padding:10px; font:12px/1.5 ui-monospace,Menlo,monospace; resize:vertical; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  button { background:var(--info); color:#fff; border:0; border-radius:7px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; }
+  button.secondary { background:#21262d; color:var(--txt); border:1px solid var(--line); }
+  .chk { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
+  .verdict { padding:12px 14px; border-radius:8px; font-weight:600; margin-bottom:12px; display:none; }
+  .verdict.ok { background:rgba(46,160,67,.12); border:1px solid var(--ok); color:#7ee29a; }
+  .verdict.bad { background:rgba(229,83,75,.12); border:1px solid var(--bad); color:#ff9b95; }
+  .issue { border-left:3px solid var(--bad); background:#0b0c0d; padding:7px 10px; margin:6px 0; border-radius:0 6px 6px 0; }
+  .issue .loc { color:var(--warn); font:12px ui-monospace,monospace; }
+  .issue .msg { color:#d8dcdf; font-size:12.5px; margin-top:2px; }
+  pre { background:#0b0c0d; border:1px solid var(--line); border-radius:7px; padding:10px; max-height:300px; overflow:auto; font:11.5px/1.45 ui-monospace,monospace; color:#aeb4b9; }
+  .muted { color:var(--muted); font-size:12px; }
+  code { color:#79c0ff; font-family:ui-monospace,monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ET Conformance — Actor Simulator</h1>
+  <span class="tag" id="actorTag">actor: …</span>
+  <span class="tag">POST → <code id="epTag">/intercept</code></span>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Compose request</h2>
+    <div class="body">
+      <label>Actor</label>
+      <select id="actor"></select>
+
+      <label>Payload</label>
+      <select id="payload"></select>
+
+      <label>Sandbox base URL <span class="muted">(blank = same origin as this page)</span></label>
+      <input type="text" id="base" placeholder="blank = same origin · or https://sandbox.fhir.et" />
+
+      <label>Body <span class="muted">(editable)</span></label>
+      <textarea id="body" spellcheck="false"></textarea>
+
+      <div class="row">
+        <button id="send">Send to interceptor</button>
+        <button class="secondary" id="reset">Reset payload</button>
+        <span class="chk"><input type="checkbox" id="fresh" checked /> freshen identifiers</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Conformance result</h2>
+    <div class="body">
+      <div class="verdict" id="verdict"></div>
+      <div id="issues"></div>
+      <div class="muted" id="meta"></div>
+      <label style="margin-top:14px">Raw response</label>
+      <pre id="raw">—</pre>
+    </div>
+  </section>
+</main>
+
+<script>
+// ---- Sample payloads (illustrative simulator demo data — NOT owned IG fixtures) ----
+// Each entry declares an HIV IG profile (HIVPatient / hiv-encounter /
+// hiv-medication-dispense). HIVPatient extends ETPatient extends Patient; the HIV IG
+// depends on the surveillance IG, which depends on et.fhir.core. The "broken" variant
+// trips an ET binding (marital status, inherited via HIVPatient) and a base required
+// field (MedicationDispense.status).
+const HIV = "http://fhir.et/hiv/StructureDefinition";
+const patientGood = {
+  fullUrl: "urn:uuid:11111111-1111-4111-8111-111111111111",
+  resource: {
+    resourceType: "Patient", meta: { profile: [HIV + "/HIVPatient"] },
+    identifier: [
+      { system: "http://id.gov.et/nationalidentifier", value: "MD-SIM-PATIENT" },
+      { system: "http://ethiori.moh.gov.et/hiv/art-number", value: "ART-SIM-1" }
+    ],
+    name: [{ given: ["Abebe"], family: "Challa" }],
+    gender: "male",
+    maritalStatus: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/v3-MaritalStatus", code: "M", display: "Married" }] }
+  },
+  request: { method: "POST", url: "Patient" }
+};
+const encounter = {
+  fullUrl: "urn:uuid:22222222-2222-4222-8222-222222222222",
+  resource: {
+    resourceType: "Encounter", meta: { profile: [HIV + "/hiv-encounter"] }, status: "finished",
+    class: { system: "http://terminology.hl7.org/CodeSystem/v3-ActCode", code: "AMB", display: "ambulatory" },
+    subject: { reference: "urn:uuid:11111111-1111-4111-8111-111111111111" }
+  },
+  request: { method: "POST", url: "Encounter" }
+};
+const medDispenseGood = {
+  fullUrl: "urn:uuid:33333333-3333-4333-8333-333333333333",
+  resource: {
+    resourceType: "MedicationDispense", meta: { profile: [HIV + "/hiv-medication-dispense"] }, status: "completed",
+    medicationCodeableConcept: { text: "Antiretroviral therapy (ART)" },
+    quantity: { value: 30, unit: "tablets", system: "http://unitsofmeasure.org", code: "{tablet}" },
+    subject: { reference: "urn:uuid:11111111-1111-4111-8111-111111111111" },
+    context: { reference: "urn:uuid:22222222-2222-4222-8222-222222222222" }
+  },
+  request: { method: "POST", url: "MedicationDispense" }
+};
+function bundle(entries) { return { resourceType: "Bundle", type: "transaction", entry: entries }; }
+
+const dispenseGood = bundle([patientGood, encounter, medDispenseGood]);
+
+// broken: ET marital-status binding violation + missing MedicationDispense.status
+const patientBad = JSON.parse(JSON.stringify(patientGood));
+patientBad.resource.maritalStatus = { coding: [{ system: "http://example.org/not-a-real-system", code: "BOGUS", display: "Not valid" }] };
+const medDispenseBad = JSON.parse(JSON.stringify(medDispenseGood));
+delete medDispenseBad.resource.status;
+const dispenseBad = bundle([patientBad, encounter, medDispenseBad]);
+
+// Real OpenMRS / SmartCare ART-dispense bundle, exactly as an external system sends it
+// (collection bundle, no meta.profile, local AACAHB code systems). Shows real-world data
+// validated against base FHIR — declare meta.profile (or map by type) to check ET profiles.
+const smartcareBundle = {
+  resourceType: "Bundle", type: "collection",
+  entry: [
+    { resource: { resourceType: "Organization", id: "d65123c7b0764db888b9add39fcdca42",
+      identifier: [{ system: "http://cdr.aacahb.gov.et/MOHId", value: "4240011" }], active: true,
+      type: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/organization-type", code: "prov", display: "Healthcare Provider" }] }],
+      name: "Abrahamo Health Center", address: [{ city: "Unknown", district: "Test Town", state: "Ethiopia" }] } },
+    { resource: { resourceType: "Patient", id: "9bcfe212-78bb-4883-bfe5-dbb2e14c1707",
+      identifier: [
+        { system: "http://cdr.aacahb.gov.et/SmartCareID", value: "9bcfe212-78bb-4883-bfe5-dbb2e14c1707" },
+        { system: "http://cdr.aacahb.gov.et/MRN", value: "123456_fhir" },
+        { system: "http://cdr.aacahb.gov.et/UAN", value: "14/09/006/99999" }],
+      gender: "male", birthDate: "2009-06-16",
+      managingOrganization: { reference: "Organization/d65123c7b0764db888b9add39fcdca42" } } },
+    { resource: { resourceType: "Encounter", id: "5f759bf14b3c468e813c41aa213c0996",
+      extension: [{ url: "http://cdr.aacahb.gov.et/next-visit", valueDateTime: "2026-07-17" }],
+      identifier: [{ system: "http://cdr.aacahb.gov.et/Encounter", value: "372542" }], status: "finished",
+      type: [{ coding: [{ system: "http://snomed.info/sct", code: "390906007" }], text: "Follow-up encounter" }],
+      serviceType: { coding: [{ system: "http://cdr.aacahb.gov.et/arv-therapy", code: "arv-treatment" }], text: "ARV Treatment" },
+      subject: { reference: "Patient/9bcfe212-78bb-4883-bfe5-dbb2e14c1707" },
+      period: { start: "2026-06-17", end: "2026-06-17" } } },
+    { resource: { resourceType: "MedicationDispense", id: "579efb162fb7450d9e0173a5bc9a9cc9",
+      extension: [{ url: "http://cdr.aacahb.gov.et/dose-end-date", valueDateTime: "2026-08-16" }], status: "completed",
+      statusReasonCodeableConcept: { coding: [{ system: "http://cdr.aacahb.gov.et/medication-dispense/status-reason", code: "alive-on-art" }], text: "Alive On ART" },
+      medicationCodeableConcept: { coding: [{ system: "http://cdr.aacahb.gov.et/hiv-regimen-codes", code: "1d", display: "AZT + 3TC + EFV" }], text: "1d AZT + 3TC + EFV" },
+      subject: { reference: "Patient/9bcfe212-78bb-4883-bfe5-dbb2e14c1707" },
+      context: { reference: "Encounter/5f759bf14b3c468e813c41aa213c0996" },
+      quantity: { value: 30, unit: "Tablet", system: "http://unitsofmeasure.org", code: "Tablet" },
+      daysSupply: { value: 30, unit: "days", system: "http://unitsofmeasure.org", code: "days" } } },
+    { resource: { resourceType: "MedicationStatement", id: "85abb4b4f8734a06989c0e82b95abb37", status: "active",
+      subject: { reference: "Patient/9bcfe212-78bb-4883-bfe5-dbb2e14c1707" },
+      context: { reference: "Encounter/5f759bf14b3c468e813c41aa213c0996" },
+      effectivePeriod: { start: "2026-06-17" },
+      reasonCode: [{ coding: [{ system: "http://cdr.aacahb.gov.et/arv-therapy", code: "arv-treatment" }], text: "ARV Treatment" }] } },
+    { resource: { resourceType: "QuestionnaireResponse", id: "f5f6e8324a224d1ba5306e24aa793add",
+      questionnaire: "ARTEligibility", status: "completed",
+      subject: { reference: "Patient/9bcfe212-78bb-4883-bfe5-dbb2e14c1707" },
+      encounter: { reference: "Encounter/5f759bf14b3c468e813c41aa213c0996" },
+      source: { reference: "Patient/9bcfe212-78bb-4883-bfe5-dbb2e14c1707" },
+      item: [
+        { linkId: "hiv-confirmation-date", text: "HIV Confirmed Date", answer: [{ valueDate: "2026-06-08" }] },
+        { linkId: "eligiblity", item: [{ linkId: "eligbility.eligbile", text: "Eligible for ART", answer: [{ valueBoolean: false }] }] }
+      ] } }
+  ]
+};
+
+// Starting point for the "Custom" option — paste any resource or bundle over it.
+const customStub = {
+  resourceType: "Patient",
+  meta: { profile: ["http://fhir.et/hiv/StructureDefinition/HIVPatient"] },
+  identifier: [
+    { system: "http://id.gov.et/nationalidentifier", value: "ET-1" },
+    { system: "http://ethiori.moh.gov.et/hiv/art-number", value: "ART-1" }
+  ],
+  name: [{ family: "Example" }], gender: "male"
+};
+
+// ---- Actor config (generalized; add EHR / lab the same way) ----
+const ACTORS = {
+  "med-dispenser": {
+    label: "Medication dispenser (EMR)",
+    endpoint: "/intercept",
+    freshen: [["MD-SIM-PATIENT", "MD-SIM-"]],
+    payloads: {
+      "good":      { label: "ART dispense bundle — conformant (Patient+Encounter+MedicationDispense)", data: dispenseGood },
+      "broken":    { label: "ART dispense bundle — BROKEN (bad marital status + missing dispense status)", data: dispenseBad },
+      "smartcare": { label: "OpenMRS / SmartCare ART dispense — real, as sent (no profiles declared)", data: smartcareBundle },
+      "custom":    { label: "Custom — paste your own resource or bundle below", data: customStub }
+    }
+  }
+};
+
+// ---- UI wiring ----
+const $ = (id) => document.getElementById(id);
+let currentActor, currentPayloadKey;
+
+function fillActors() {
+  $("actor").innerHTML = Object.keys(ACTORS).map(k => `<option value="${k}">${ACTORS[k].label}</option>`).join("");
+  selectActor(Object.keys(ACTORS)[0]);
+}
+function selectActor(k) {
+  currentActor = k;
+  const a = ACTORS[k];
+  $("actorTag").textContent = "actor: " + k;
+  $("epTag").textContent = a.endpoint;
+  $("payload").innerHTML = Object.keys(a.payloads).map(p => `<option value="${p}">${a.payloads[p].label}</option>`).join("");
+  selectPayload(Object.keys(a.payloads)[0]);
+}
+function selectPayload(p) {
+  currentPayloadKey = p;
+  $("body").value = JSON.stringify(ACTORS[currentActor].payloads[p].data, null, 2);
+  clearResult();
+}
+function freshen(text) {
+  if (!$("fresh").checked) return text;
+  const ts = Date.now();
+  (ACTORS[currentActor].freshen || []).forEach(([from, prefix]) => { text = text.split(from).join(prefix + ts); });
+  return text;
+}
+function clearResult() {
+  $("verdict").style.display = "none"; $("issues").innerHTML = ""; $("meta").textContent = ""; $("raw").textContent = "—";
+}
+function renderIssues(issues) {
+  $("issues").innerHTML = (issues || []).map(i =>
+    `<div class="issue"><div class="loc">${i.severity} · ${i.location || "(resource)"}</div><div class="msg">${(i.message||"").replace(/</g,"&lt;")}</div></div>`
+  ).join("");
+}
+
+async function send() {
+  clearResult();
+  const a = ACTORS[currentActor];
+  const base = $("base").value.trim().replace(/\/$/, "");
+  const url = (base || "") + a.endpoint;
+  const bodyText = freshen($("body").value);
+  $("body").value = bodyText;
+  $("meta").textContent = "POST " + url + " …";
+  let res, text;
+  try {
+    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/fhir+json", "Accept": "application/fhir+json" }, body: bodyText });
+    text = await res.text();
+  } catch (e) {
+    $("verdict").style.display = "block"; $("verdict").className = "verdict bad";
+    $("verdict").textContent = "Request failed: " + e.message + " — check the base URL / that the sandbox is up.";
+    return;
+  }
+  const verdict = res.headers.get("X-ET-Validation");
+  const reportHdr = res.headers.get("X-ET-Validation-Report");
+  let issues = [];
+  if (reportHdr) { try { issues = JSON.parse(decodeURIComponent(reportHdr)); } catch (_) {} }
+  // fall back to parsing an OperationOutcome body if no header report
+  if (!issues.length) {
+    try { const oo = JSON.parse(text); if (oo.resourceType === "OperationOutcome") {
+      issues = (oo.issue || []).filter(i => i.severity === "error" || i.severity === "fatal")
+        .map(i => ({ severity: i.severity, location: (i.location||i.expression||[])[0] || "", message: i.diagnostics || (i.details && i.details.text) || "" }));
+    }} catch (_) {}
+  }
+  const errCount = issues.length;
+  $("verdict").style.display = "block";
+  $("verdict").className = "verdict " + (errCount === 0 ? "ok" : "bad");
+  $("verdict").textContent = (errCount === 0 ? "✓ Conformant — " : "✗ " + errCount + " error(s) — ") + (verdict || ("HTTP " + res.status));
+  renderIssues(issues);
+  $("meta").innerHTML = "Forward result: <code>HTTP " + res.status + "</code>" + (verdict ? " · verdict header: <code>" + verdict + "</code>" : "");
+  try { $("raw").textContent = JSON.stringify(JSON.parse(text), null, 2); } catch (_) { $("raw").textContent = text; }
+}
+
+$("actor").addEventListener("change", e => selectActor(e.target.value));
+$("payload").addEventListener("change", e => selectPayload(e.target.value));
+$("send").addEventListener("click", send);
+$("reset").addEventListener("click", () => selectPayload(currentPayloadKey));
+fillActors();
+</script>
+</body>
+</html>

@@ -1,41 +1,23 @@
 services:
   fhir-server:
-    # Thin image over hapiproject/hapi that adds a static busybox so the
-    # otherwise JRE-only (distroless) image can run a container healthcheck.
     build:
       context: .
       dockerfile: Dockerfile
     image: hapi-sandbox-fhir:local
     container_name: hapi-sandbox
     restart: unless-stopped
-    # Loopback-only debug port for direct (non-TLS) HAPI access. Safe locally
-    # AND in prod: bound to 127.0.0.1, so it is reachable only on the host /
-    # via SSH tunnel, never from the internet. Caddy is the only public listener.
+    # Local-only direct HAPI access (debugging). Public traffic goes via gateway.
     ports:
       - "127.0.0.1:${HAPI_DEBUG_PORT:-8090}:8080"
     env_file:
       - .env
     environment:
-      # Tell Spring Boot to load config from the mounted file.
       - SPRING_CONFIG_LOCATION=file:/config/application.yaml
-      # Public base URL so CapabilityStatement / paging links / Location headers
-      # are correct now that HAPI runs behind Caddy (which terminates TLS).
-      # Spring relaxed-binding maps this env var onto hapi.fhir.server_address.
-      - HAPI_FHIR_SERVER_ADDRESS=https://${DOMAIN}/fhir
+      - HAPI_FHIR_SERVER_ADDRESS=${PUBLIC_BASE_URL:-https://${DOMAIN}/fhir}
     volumes:
-      # Your editable HAPI configuration. Edit ./config/application.yaml on the host
-      # and restart the container (docker compose restart fhir-server) to apply.
       - ./config/application.yaml:/config/application.yaml:ro
-      # H2 database files persist here between restarts. Delete this folder to reset.
       - ./data:/data
-      # Local IG packages dir, loaded via hapi.fhir.implementationguides when
-      # ET_IG_PACKAGE_URL is a file:// URL (the default). Build the tgz with
-      # harness/scripts/refresh-core-ig.sh. In published mode (https packageUrl)
-      # this dir is simply unused.
       - ./igs:/igs:ro
-    # Green when /fhir/metadata answers. Uses the static busybox added by the
-    # Dockerfile (the base image has no shell/curl/wget). start_period covers
-    # HAPI's ~60-90s cold start (r4.core IG load); failures before then don't count.
     healthcheck:
       test: ["CMD", "/busybox/busybox", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/fhir/metadata"]
       interval: 15s
@@ -44,8 +26,6 @@ services:
       start_period: 120s
 
   interceptor:
-    # Always-on conformance proxy: Karate mock validating POSTed resources
-    # against their ET profile via HAPI's $validate. Reachable at Caddy /intercept/*.
     build:
       context: ./harness/interceptor
     image: hapi-sandbox-interceptor:local
@@ -53,43 +33,35 @@ services:
     restart: unless-stopped
     environment:
       - ET_TARGET=http://fhir-server:8080/fhir
+    volumes:
+      - ./harness/interceptor/et-interceptor.feature:/app/et-interceptor.feature:ro
+      - ./harness/interceptor/profileFor.json:/app/profileFor.json:ro
+      - ./harness/target/sessions:/sessions
     depends_on:
       fhir-server:
         condition: service_healthy
     healthcheck:
-      # eclipse-temurin (Ubuntu) ships bash; /dev/tcp checks the mock is listening.
       test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/8080"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 40s
 
-  caddy:
+  gateway:
+    # Single entrypoint (HTTP) — routes /fhir, /intercept, /docs, /sim. Bound to
+    # 127.0.0.1: front it with the host's TLS-terminating reverse proxy in
+    # production, or hit it directly at http://localhost:${GATEWAY_PORT} in dev.
     image: caddy:2-alpine
-    container_name: hapi-caddy
+    container_name: hapi-gateway
     restart: unless-stopped
-    # Caddy is the only public listener. 80 is required for the ACME HTTP-01
-    # challenge and the HTTP->HTTPS redirect; 443 (+UDP for HTTP/3) serves HTTPS.
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    env_file:
-      - .env
+      - "127.0.0.1:${GATEWAY_PORT:-8095}:8080"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # ACME account keys + issued certs MUST persist, or every recreate
-      # re-requests certs and risks hitting Let's Encrypt rate limits.
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./docs:/srv/docs:ro
+      - ./harness/simulator:/srv/sim:ro
     depends_on:
-      # Now that HAPI has a working healthcheck, gate Caddy on it so the proxy
-      # only comes up once /fhir/metadata answers (no cold-start 502 window).
       fhir-server:
         condition: service_healthy
       interceptor:
         condition: service_started
-
-volumes:
-  caddy_data:
-  caddy_config:

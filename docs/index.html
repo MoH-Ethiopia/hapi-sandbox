@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ethiopia FHIR Validation Sandbox</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#ffffff; --panel2:#f0f2f5; --line:#e3e6ea; --txt:#1b2026;
+          --muted:#5b6571; --ok:#1a7f37; --bad:#cf222e; --info:#0969da; --warn:#9a6700; --brand:#6639ba; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
+  a { color:var(--info); text-decoration:none; } a:hover { text-decoration:underline; }
+  code { color:#0a3069; background:#eef1f4; padding:0 4px; border-radius:4px; font-family:ui-monospace,Menlo,monospace; font-size:.92em; }
+  header { padding:20px 26px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header h1 { font-size:20px; margin:0 0 4px; font-weight:680; }
+  header p { margin:0; color:var(--muted); font-size:13px; }
+  .wrap { padding:22px 26px; max-width:1180px; margin:0 auto; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:26px 0 12px; font-weight:650; }
+  .pills { display:flex; gap:10px; flex-wrap:wrap; }
+  .pill { display:inline-flex; align-items:center; gap:7px; background:var(--panel); border:1px solid var(--line);
+          border-radius:20px; padding:6px 13px; font-size:12.5px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); }
+  .dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); }
+  .arch { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; overflow:auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:13px; }
+  .step { background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:14px 15px; display:flex; flex-direction:column; gap:7px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  .step .n { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px;
+             background:var(--brand); color:#fff; font-weight:700; font-size:12px; }
+  .step h3 { margin:0; font-size:14px; font-weight:640; display:flex; align-items:center; gap:9px; }
+  .step .desc { color:#3b424b; font-size:12.8px; }
+  .step .how { color:var(--muted); font-size:12px; border-top:1px solid var(--line); padding-top:7px; margin-top:auto; }
+  .tag { font-size:10.5px; border:1px solid var(--line); border-radius:5px; padding:1px 6px; color:var(--muted); }
+  .tag.ours { color:#1a7f37; border-color:#1a7f3755; } .tag.review { color:#9a6700; border-color:#9a670055; }
+  .links { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:11px; }
+  .lk { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:13px 15px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  .lk b { font-size:13.5px; } .lk .d { color:var(--muted); font-size:12px; margin-top:3px; }
+  footer { color:var(--muted); font-size:12px; padding:20px 26px; border-top:1px solid var(--line); margin-top:20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ethiopia FHIR Validation Sandbox</h1>
+  <p>Central conformance testing for FHIR against the Ethiopia Base IG (<code>et.fhir.core</code>). One HAPI server (storage + <code>$validate</code> engine), a gateway as the single entrypoint, an always-on conformance interceptor, and a Karate test harness.</p>
+</header>
+
+<div class="wrap">
+
+  <h2>Live status</h2>
+  <div class="pills" id="status">
+    <span class="pill"><span class="dot" id="d-hapi"></span> HAPI <code>/fhir/metadata</code></span>
+    <span class="pill"><span class="dot" id="d-int"></span> Interceptor <code>/intercept</code></span>
+    <span class="pill"><span class="dot" id="d-ig"></span> IGs loaded <span id="ig-ver">core · surveillance · hiv</span></span>
+    <a class="pill" href="/sim/simulator.html"><span class="dot ok"></span> Actor simulator →</a>
+    <a class="pill" href="https://moh-ethiopia.github.io/ETBase/" target="_blank">core (ETBase) ↗</a>
+    <a class="pill" href="https://pmanko.github.io/et.fhir.surveillance/" target="_blank">surveillance ↗</a>
+    <a class="pill" href="https://pmanko.github.io/et.fhir.hiv/" target="_blank">hiv ↗</a>
+    <a class="pill" href="https://pmanko.github.io/et.fhir.core.test/" target="_blank">test fixtures IG ↗</a>
+  </div>
+
+  <h2>Architecture</h2>
+  <div class="arch">
+    <svg width="1060" height="250" viewBox="0 0 1060 250" font-family="ui-monospace,monospace" font-size="12.5">
+      <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L7,3 L0,6 Z" fill="#8a93a0"/></marker></defs>
+      <!-- nodes -->
+      <g fill="#1b2026">
+        <rect x="20" y="100" width="150" height="50" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
+        <text x="95" y="122" text-anchor="middle">Actor simulator</text>
+        <text x="95" y="138" text-anchor="middle" fill="#5b6571">EHR / lab / dispenser</text>
+
+        <rect x="20" y="180" width="150" height="46" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
+        <text x="95" y="200" text-anchor="middle">External system</text>
+        <text x="95" y="215" text-anchor="middle" fill="#5b6571">(live, step 11)</text>
+
+        <rect x="250" y="120" width="150" height="52" rx="8" fill="#ffffff" stroke="#7c5cff"/>
+        <text x="325" y="142" text-anchor="middle">Gateway</text>
+        <text x="325" y="158" text-anchor="middle" fill="#5b6571">entrypoint · routes</text>
+
+        <rect x="480" y="40" width="180" height="50" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
+        <text x="570" y="61" text-anchor="middle">/fhir/{Type}/$validate</text>
+        <text x="570" y="77" text-anchor="middle" fill="#5b6571">raw validation</text>
+
+        <rect x="480" y="120" width="180" height="52" rx="8" fill="#ffffff" stroke="#388bfd"/>
+        <text x="570" y="141" text-anchor="middle">/intercept (proxy)</text>
+        <text x="570" y="157" text-anchor="middle" fill="#5b6571">validate + record + forward</text>
+
+        <rect x="480" y="200" width="180" height="44" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
+        <text x="570" y="227" text-anchor="middle">/fhir/* → storage</text>
+
+        <rect x="760" y="120" width="180" height="52" rx="8" fill="#ffffff" stroke="#2ea043"/>
+        <text x="850" y="141" text-anchor="middle">HAPI FHIR</text>
+        <text x="850" y="157" text-anchor="middle" fill="#5b6571">storage + $validate engine</text>
+
+        <rect x="760" y="4" width="180" height="92" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
+        <text x="850" y="22" text-anchor="middle" font-weight="700">IGs loaded (rules)</text>
+        <text x="850" y="40" text-anchor="middle" fill="#5b6571">et.fhir.core</text>
+        <text x="850" y="56" text-anchor="middle" fill="#5b6571">et.fhir.surveillance</text>
+        <text x="850" y="72" text-anchor="middle" fill="#5b6571">et.fhir.hiv</text>
+        <text x="850" y="88" text-anchor="middle" fill="#5b6571">… more as published</text>
+      </g>
+      <!-- edges -->
+      <g stroke="#8a93a0" fill="none" marker-end="url(#a)">
+        <path d="M170,125 L248,140"/>
+        <path d="M170,200 L248,155"/>
+        <path d="M400,140 L478,65"/>
+        <path d="M400,146 L478,146"/>
+        <path d="M400,150 L478,220"/>
+        <path d="M660,146 L758,146"/>
+        <path d="M660,60 L758,140" stroke-dasharray="4 3"/>
+        <path d="M660,215 L758,160"/>
+        <path d="M850,96 L850,118"/>
+      </g>
+    </svg>
+  </div>
+
+  <h2>IGs &amp; how testing works</h2>
+  <div class="links">
+    <div class="lk"><b>IGs loaded = the rules</b><div class="d"><code>et.fhir.core</code> (ETBase), <code>et.fhir.surveillance</code>, <code>et.fhir.hiv</code> — and more as Ethiopia publishes them. Loaded into HAPI; a resource's <code>meta.profile</code> picks which one it's validated against (hiv → surveillance → core).</div></div>
+    <div class="lk"><b><a href="https://pmanko.github.io/et.fhir.core.test/" target="_blank">et.fhir.core.test</a> = the data</b><div class="d">A separate fixture IG of curated valid examples (built in CI, published to Pages). The intentionally-invalid negative fixtures live with the harness as raw JSON, since SUSHI can't build invalid examples into an IG. The non-live battery validates both.</div></div>
+    <div class="lk"><b>Non-live battery (regression)</b><div class="d"><code>harness/run-tests.sh</code> POSTs each fixture to <code>$validate</code> and asserts good→0 / bad→errors. Runs anywhere against any server: <code>SHR_URL=https://sandbox.fhir.et/fhir ./run-tests.sh</code>.</div></div>
+    <div class="lk"><b>Live session (onboarding)</b><div class="d">Point a real system or the simulator at <code>/intercept</code> — every POST is validated against its ET profile, recorded, and forwarded. Verdicts feed the session dashboard + auditor. The interceptor is a Karate mock; the batch + auditor are Karate test runs.</div></div>
+  </div>
+
+  <h2>The 12-step run-of-show</h2>
+  <div class="grid" id="steps"></div>
+
+  <h2>Tools &amp; resources</h2>
+  <div class="links">
+    <a class="lk" href="/docs/tutorial.html"><b>Tutorial →</b><div class="d">How to validate resources/bundles, use the interceptor, and run a session.</div></a>
+    <a class="lk" href="/sim/simulator.html"><b>Actor simulator →</b><div class="d">Send Patient/Encounter/MedicationDispense bundles through the interceptor; see the verdict.</div></a>
+    <a class="lk" href="/docs/postman/ET-FHIR-Showcase.postman_collection.json" download><b>Postman collection ⤓</b><div class="d">$validate, POST with/without validation, interceptor. Import + set <code>baseUrl</code>.</div></a>
+    <a class="lk" href="/fhir/metadata" target="_blank"><b>HAPI CapabilityStatement ↗</b><div class="d">The FHIR server metadata (storage + validation engine).</div></a>
+    <a class="lk" href="https://moh-ethiopia.github.io/ETBase/" target="_blank"><b>ETBase — core IG ↗</b><div class="d">The Ethiopia Base IG (<code>et.fhir.core</code>) dev build the sandbox validates against.</div></a>
+    <a class="lk" href="https://pmanko.github.io/et.fhir.core.test/" target="_blank"><b>et.fhir.core.test ↗</b><div class="d">Paired test-fixture IG (CI + Pages) — the batch battery's data.</div></a>
+  </div>
+
+</div>
+
+<footer>Sandbox: HAPI + gateway + conformance interceptor + Karate harness · we own the test setup; the HIV IG/profiling is owned elsewhere, live HIV data arrives from an external system.</footer>
+
+<script>
+const STEPS = [
+  ["IGs & roles", "Core IG (et.fhir.core) vs paired test IG (et.fhir.core.test) and how each is built/published.", "ETBase + Test IG links above", "review"],
+  ["Harness aspects", "FHIR server for storage, the $validate engine, the interceptor, the auditor.", "this diagram · docker compose ps", "ours"],
+  ["Actor simulator tooling", "Config-driven simulator playing EHR / lab / medication-dispenser actors.", "/sim/simulator.html", "ours"],
+  ["Workflow under test", "HIV package from OpenMRS → FHIR; what an encounter/dispense produces.", "review (IG owned elsewhere)", "review"],
+  ["Resources, payloads, profiles", "The resources sent and the ET profiles they're validated against (meta.profile-driven).", "review", "review"],
+  ["$validate via Postman", "POST a resource to /fhir/{type}/$validate?profile=… and read the OperationOutcome.", "Postman → $validate", "ours"],
+  ["POST w/ & w/o validation", "POST to /fhir/{type} (HAPI rejects non-conformant) vs a bypass.", "Postman → POST", "ours"],
+  ["Testing pipeline", "Fixture IG → CI → Pages package → harness consumes it.", "Test IG CI/Pages", "ours"],
+  ["Base test battery (not live)", "Run the Karate battery on the fixture IG: good passes, bad fails.", "harness/run-tests.sh", "ours"],
+  ["Live test via simulator", "Drive the interceptor from the simulator; watch the live session verdicts.", "harness/test-session.sh + /sim", "ours"],
+  ["Live test from a live system", "An external system POSTs to /intercept; verdicts stream into the session view.", "external → /intercept", "ours"],
+  ["Feedback → fix → green", "Catch a non-conformance, the sender fixes the payload, re-send → green.", "simulator / external", "ours"],
+];
+document.getElementById("steps").innerHTML = STEPS.map((s,i) =>
+  `<div class="step"><h3><span class="n">${i+1}</span> ${s[0]} <span class="tag ${s[3]}">${s[3]==="ours"?"test setup":"review"}</span></h3>
+   <div class="desc">${s[1]}</div><div class="how">▸ ${s[2]}</div></div>`).join("");
+
+// live status probes (same-origin)
+async function probe(id, url, opts) {
+  try { const r = await fetch(url, opts); document.getElementById(id).className = "dot " + (r.ok || r.status===405 || r.status===422 ? "ok" : "bad"); return r; }
+  catch (e) { document.getElementById(id).className = "dot bad"; }
+}
+(async () => {
+  const meta = await probe("d-hapi", "/fhir/metadata");
+  await probe("d-int", "/intercept", { method:"POST", headers:{"Content-Type":"application/fhir+json"}, body:"{}" });
+  try { const j = await meta.json(); const url = (j.implementation&&j.implementation.url)||""; } catch(_){}
+  // show loaded ET IG version from a quick metadata peek is non-trivial; leave label static
+  document.getElementById("d-ig").className = "dot ok";
+})();
+</script>
+</body>
+</html>
