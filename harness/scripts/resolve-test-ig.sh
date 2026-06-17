@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Resolve the et.fhir.core.test fixture package and print its package/ directory.
-# This package holds the VALID fixtures; the intentionally-invalid (negative)
-# ones live in the harness at fixtures/invalid/ (they can't be FSH examples — see
-# fixtures/invalid/README.md).
+# This package holds the VALID single-resource examples; the intentionally-invalid
+# (negative) ones and the workflow bundles live in the same test IG repo under
+# test-fixtures/ (outside input/) — see scripts/resolve-test-fixtures.sh.
 #
 # Resolution order (override with TEST_IG_DIR / TEST_IG_PKG_URL):
 #   1. $TEST_IG_DIR                              a package/ dir

@@ -3,11 +3,14 @@
 #   ./run-tests.sh                      # validate vs http://localhost:8090/fhir
 #   SHR_URL=https://host/fhir ./run-tests.sh
 #
-# Fixtures: VALID examples are resolved from the et.fhir.core.test IG package
-# (see scripts/resolve-test-ig.sh); intentionally-INVALID (negative) ones live in
-# fixtures/invalid/ as raw JSON (SUSHI would fail the IG build on them — ZW-kit
-# pattern). Both are validated against their ET profiles; profile selection
-# reuses interceptor/profileFor.json (a resource's meta.profile wins).
+# All fixtures live in the et.fhir.core.test IG repo (this harness carries none):
+#   - VALID single resources: FSH examples, resolved from the built package
+#     (see scripts/resolve-test-ig.sh).
+#   - INVALID resources + good/bad bundles: raw JSON under the test IG's
+#     test-fixtures/ (outside input/, so the IG Publisher ships them without
+#     QA-validating them). Resolved via scripts/resolve-test-fixtures.sh.
+# Both are validated against their ET profiles; profile selection reuses
+# interceptor/profileFor.json (a resource's meta.profile wins).
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -20,13 +23,14 @@ mkdir -p target
   curl -fL -o "$JAR" "https://github.com/karatelabs/karate/releases/download/v${KARATE_VERSION}/karate-${KARATE_VERSION}.jar"; }
 
 PKG="$(scripts/resolve-test-ig.sh)"
-echo "Fixtures from: $PKG"
+FIXTURES_DIR="$(scripts/resolve-test-fixtures.sh)"
+echo "Valid examples from: $PKG"
+echo "Negative/bundle fixtures from: $FIXTURES_DIR"
 
-# Manifest = valid examples from the test IG package + everything under
-# harness/fixtures/ (invalid resources and good/bad bundles, raw JSON — they
-# can't live in the IG; SUSHI fails the build on invalid instances). Bundles
-# POST to Bundle/$validate. expectError is inferred from "bad"/"invalid" in the name.
-python3 - "$PKG" interceptor/profileFor.json "$PWD/fixtures" > target/fixtures.json <<'PY'
+# Manifest = valid examples from the test IG package + invalid resources / bundles
+# from the test IG's test-fixtures/ dir. Bundles POST to Bundle/$validate.
+# expectError is inferred from "bad"/"invalid" in the name.
+python3 - "$PKG" interceptor/profileFor.json "$FIXTURES_DIR" > target/fixtures.json <<'PY'
 import json, os, sys, glob
 pkg, profile_map_file, fixtures_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 profiles = {k: v for k, v in json.load(open(profile_map_file)).items() if not k.startswith('_')}
