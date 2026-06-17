@@ -160,7 +160,9 @@ sdk env                 <span class="c"># Java 21 (per .sdkmanrc)</span>
   they're published. A resource's <code>meta.profile</code> selects which profile it's checked against
   (e.g. an HIV dispense → <code>hiv-medication-dispense</code>, which builds on surveillance → core).
   The <a href="https://pmanko.github.io/et.fhir.core.test/" target="_blank">et.fhir.core.test</a> IG
-  holds the curated fixtures the non-live battery validates — the harness carries no data itself.</p>
+  holds the curated <i>valid</i> fixtures the non-live battery validates; the intentionally-invalid
+  (negative) fixtures live with the harness as raw JSON (they can't be IG examples — SUSHI fails the
+  build on them).</p>
   <p class="note"><b>Deployed sessions.</b> The interceptor is a <b>Karate mock</b> server and the
   non-live battery + auditor are <b>Karate test runs</b>. Today a live session against
   <code>sandbox.fhir.et</code> is driven by an operator running <code>test-session.sh</code> on the

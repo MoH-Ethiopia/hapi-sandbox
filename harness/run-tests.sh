@@ -3,9 +3,11 @@
 #   ./run-tests.sh                      # validate vs http://localhost:8090/fhir
 #   SHR_URL=https://host/fhir ./run-tests.sh
 #
-# Data-free: fixtures are resolved from the et.fhir.core.test IG package (see
-# scripts/resolve-test-ig.sh) and validated against their ET profiles. Profile
-# selection reuses interceptor/profileFor.json (a resource's meta.profile wins).
+# Fixtures: VALID examples are resolved from the et.fhir.core.test IG package
+# (see scripts/resolve-test-ig.sh); intentionally-INVALID (negative) ones live in
+# fixtures/invalid/ as raw JSON (SUSHI would fail the IG build on them — ZW-kit
+# pattern). Both are validated against their ET profiles; profile selection
+# reuses interceptor/profileFor.json (a resource's meta.profile wins).
 set -euo pipefail
 cd "$(dirname "$0")"
 
