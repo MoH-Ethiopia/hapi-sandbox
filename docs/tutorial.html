@@ -47,6 +47,19 @@
   <code>meta.profile</code>. If a resource declares no profile, it's validated against base FHIR R4.
   Running locally instead of deployed? Use <code>https://localhost</code> and add <code>-k</code> to curl.</div>
 
+  <h2>Running the sandbox (operators)</h2>
+  <p>The whole stack — HAPI (the validation engine, with the ET IGs loaded), the always-on
+  conformance <b>interceptor</b>, and the Caddy gateway — comes up with one command:</p>
+<pre>cd hapi-sandbox
+docker compose up -d        <span class="c"># start HAPI + interceptor + Caddy</span>
+docker compose ps           <span class="c"># wait for hapi-sandbox + hapi-interceptor -> (healthy)</span></pre>
+  <p>Then open <code>https://localhost/docs/</code> (this dashboard) or
+  <code>https://localhost/sim/simulator.html</code> (the simulator), and POST to
+  <code>https://localhost/intercept</code>. Locally the base URL is <code>https://localhost</code>
+  with a self-signed cert (add <code>-k</code> to curl); deployed it is <code>https://sandbox.fhir.et</code>
+  with a real certificate. After rebuilding an IG, force a fresh install with
+  <code>docker compose down &amp;&amp; rm -rf data &amp;&amp; docker compose up -d</code>.</p>
+
   <h2><span class="n">1</span> Validate a single resource</h2>
   <p>POST the resource to <code>$validate</code> for its type. Use <code>?profile=</code> to assert a
   specific Ethiopian profile (or rely on the resource's <code>meta.profile</code>).</p>
