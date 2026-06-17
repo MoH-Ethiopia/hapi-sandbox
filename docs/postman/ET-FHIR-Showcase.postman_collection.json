@@ -1,12 +1,12 @@
 {
   "info": {
     "name": "ET FHIR Showcase",
-    "description": "Demo requests for the Ethiopia FHIR validation sandbox. Set the `host` variable (default https://localhost). $validate, POST with/without profile validation, and the conformance interceptor.",
+    "description": "Demo requests for the Ethiopia FHIR validation sandbox. Set the `host` variable (default http://localhost:8095, or https://sandbox.fhir.et). $validate, POST with/without profile validation, and the conformance interceptor.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": "1.0.0"
   },
   "variable": [
-    { "key": "host", "value": "https://localhost" },
+    { "key": "host", "value": "http://localhost:8095" },
     { "key": "baseUrl", "value": "{{host}}/fhir" },
     { "key": "etPatient", "value": "http://fhir.et/core/StructureDefinition/ETPatient" }
   ],

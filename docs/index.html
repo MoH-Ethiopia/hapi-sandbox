@@ -40,7 +40,7 @@
 <body>
 <header>
   <h1>Ethiopia FHIR Validation Sandbox</h1>
-  <p>Central conformance testing for FHIR against the Ethiopia Base IG (<code>et.fhir.core</code>). One HAPI server (storage + <code>$validate</code> engine), a Caddy gateway, an always-on conformance interceptor, and a Karate test harness.</p>
+  <p>Central conformance testing for FHIR against the Ethiopia Base IG (<code>et.fhir.core</code>). One HAPI server (storage + <code>$validate</code> engine), a gateway as the single entrypoint, an always-on conformance interceptor, and a Karate test harness.</p>
 </header>
 
 <div class="wrap">
@@ -73,11 +73,11 @@
         <text x="95" y="215" text-anchor="middle" fill="#5b6571">(live, step 11)</text>
 
         <rect x="250" y="120" width="150" height="52" rx="8" fill="#ffffff" stroke="#7c5cff"/>
-        <text x="325" y="142" text-anchor="middle">Caddy gateway</text>
-        <text x="325" y="158" text-anchor="middle" fill="#5b6571">TLS · routes</text>
+        <text x="325" y="142" text-anchor="middle">Gateway</text>
+        <text x="325" y="158" text-anchor="middle" fill="#5b6571">entrypoint · routes</text>
 
         <rect x="480" y="40" width="180" height="50" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
-        <text x="570" y="61" text-anchor="middle">/validate → $validate</text>
+        <text x="570" y="61" text-anchor="middle">/fhir/{Type}/$validate</text>
         <text x="570" y="77" text-anchor="middle" fill="#5b6571">raw validation</text>
 
         <rect x="480" y="120" width="180" height="52" rx="8" fill="#ffffff" stroke="#388bfd"/>
@@ -136,7 +136,7 @@
 
 </div>
 
-<footer>Sandbox: HAPI + Caddy + conformance interceptor + Karate harness · we own the test setup; the HIV IG/profiling is owned elsewhere, live HIV data arrives from an external system.</footer>
+<footer>Sandbox: HAPI + gateway + conformance interceptor + Karate harness · we own the test setup; the HIV IG/profiling is owned elsewhere, live HIV data arrives from an external system.</footer>
 
 <script>
 const STEPS = [

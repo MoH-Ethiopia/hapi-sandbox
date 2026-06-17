@@ -1,59 +1,31 @@
-{
-	# Used only when {$DOMAIN} is a public name (Let's Encrypt). Ignored for localhost.
-	email {$ACME_EMAIL}
-}
-
-{$DOMAIN} {
+# HTTP-only entrypoint. TLS is the fronting reverse proxy's job (or none, in dev).
+:8080 {
 	encode gzip
 
-	# --- Validation routing SEAM ------------------------------------------
-	# HAPI's $validate is TYPE-level (system-level /fhir/$validate is NOT
-	# supported), so we map:
-	#   POST /validate/{ResourceType}  -> /fhir/{ResourceType}/$validate
-	#   POST /validate  (or /validate/) -> /fhir/Bundle/$validate   (headline case)
-	# ?profile=... is preserved. Iteration 2 swaps these reverse_proxy targets
-	# for the Karate/report test-harness, which itself calls HAPI $validate.
-	@validate path /validate /validate/ /validate/*
-	handle @validate {
-		@typed path_regexp vt ^/validate/([A-Za-z]+)/?$
-		rewrite @typed /fhir/{re.vt.1}/$validate?{query}
-		@bare path /validate /validate/
-		rewrite @bare /fhir/Bundle/$validate?{query}
-		reverse_proxy fhir-server:8080
-	}
+	# Validate via HAPI's standard operation under /fhir: POST /fhir/{Type}/$validate
+	# (and /fhir/Bundle/$validate). Validate-and-report path is /intercept.
 
-	# --- Conformance interceptor ------------------------------------------
-	# POST any FHIR resource here -> validated against its ET profile, verdict
-	# returned in the OperationOutcome + X-ET-Validation header. The Karate mock
-	# ignores the path (it dispatches on the body), so prefix-stripping is fine.
 	handle_path /intercept* {
 		reverse_proxy interceptor:8080
 	}
 
-	# --- Showcase dashboard (static) --------------------------------------
 	handle_path /docs* {
 		root * /srv/docs
 		file_server browse
 	}
 
-	# --- Actor simulators (static, same-origin with /intercept) -----------
 	handle_path /sim* {
 		root * /srv/sim
 		file_server browse
 	}
 
-	# --- FHIR API ---------------------------------------------------------
 	handle /fhir/* {
 		reverse_proxy fhir-server:8080 {
-			# Active upstream health check (the distroless HAPI image can't run
-			# its own container healthcheck). While HAPI is cold-starting/down
-			# Caddy returns 503 instead of a raw 502, and auto-recovers.
 			health_uri /fhir/metadata
 			health_interval 15s
 			health_timeout 5s
 		}
 	}
 
-	# Convenience: bare root -> showcase dashboard.
 	redir / /docs/ 302
 }

@@ -4,27 +4,30 @@ A sandbox for validating FHIR resources against the **official Ethiopia FHIR spe
 the Ethiopia Base IG ([`et.fhir.core`](https://moh-ethiopia.github.io/ETBase/)). Submit a resource
 or bundle and get a conformance verdict against the published Ethiopian profiles.
 
-It runs a FHIR server (the validation engine, with the Ethiopia IG loaded), a TLS gateway, an
-always-on conformance **interceptor**, and a small test harness.
+It runs a FHIR server (the validation engine, with the Ethiopia IG loaded), a gateway that is the
+single entrypoint, an always-on conformance **interceptor**, and a small test harness.
 
 ## Quick start
 
 ```bash
 cp .env.example .env          # defaults to DOMAIN=localhost
 docker compose up -d
-open https://localhost/docs/  # dashboard (self-signed locally — accept the cert)
+open http://localhost:8095/docs/
 ```
 
-By default the sandbox validates against the published Ethiopia IG dev build
-(`https://moh-ethiopia.github.io/ETBase/`). `docker compose ps` should show all services healthy.
+The **gateway** is the one HTTP entrypoint (`127.0.0.1:8095`), routing `/fhir`, `/intercept`,
+`/docs`, `/sim`. In production you front it with the host's TLS-terminating reverse proxy
+(see [Deploy](#deploy)); locally you hit it directly. `docker compose ps` should show all services
+healthy; it validates against the published Ethiopia IG by default.
 
 ## Three ways to validate
 
-1. **Interceptor** — `POST https://localhost/intercept` with a resource or transaction bundle.
+1. **Interceptor** — `POST http://localhost:8095/intercept` with a resource or transaction bundle.
    It validates against the Ethiopia profiles, returns the verdict in the `X-ET-Validation` header,
-   and forwards to the server. Try it from the browser: `https://localhost/sim/simulator.html`.
-2. **`$validate`** — `POST https://localhost/fhir/{Type}/$validate?profile=…` for a raw
-   OperationOutcome. Ready-made requests are in `docs/postman/ET-FHIR-Showcase.postman_collection.json`.
+   and forwards to the server. Try it from the browser: `http://localhost:8095/sim/simulator.html`.
+2. **`$validate`** — `POST http://localhost:8095/fhir/{Type}/$validate?profile=…` (or
+   `/fhir/Bundle/$validate`) for a raw OperationOutcome — HAPI's standard operation.
+   Ready-made requests are in `docs/postman/ET-FHIR-Showcase.postman_collection.json`.
 3. **Batch** — `cd harness && ./run-tests.sh` validates a set of fixtures (valid must pass, invalid
    must fail).
 
@@ -33,9 +36,8 @@ Which Ethiopian profile a resource is checked against is taken from its own `met
 ## Routes
 | Path | Purpose |
 |---|---|
-| `/fhir/*` | FHIR API (CRUD, search, `$validate`, `/metadata`) |
-| `/validate`, `/validate/{Type}` | raw `$validate` (validate-only) |
-| `/intercept` | conformance proxy (validate → forward) |
+| `/fhir/*` | FHIR API (CRUD, search, `/metadata`) incl. `$validate`: `/fhir/{Type}/$validate`, `/fhir/Bundle/$validate` |
+| `/intercept` | conformance proxy (validate → verdict headers → forward) |
 | `/docs/` | dashboard · `/sim/simulator.html` simulator |
 
 ## Session testing
@@ -49,30 +51,33 @@ verdict and audits what was stored against the Ethiopia profiles. Needs Java 17+
 `21.0.5-tem`; run `sdk env`).
 
 ## Configuration (`.env`)
-- `DOMAIN` — `localhost` (self-signed) or a public domain (auto HTTPS).
-- `ET_IG_PACKAGE_URL` / `ET_IG_VERSION` — the Ethiopia IG to validate against. Defaults to the
-  published dev build; set a `file:///igs/et.fhir.core.tgz` URL (built by
-  `harness/scripts/refresh-core-ig.sh`) for offline use.
+- `DOMAIN` / `PUBLIC_BASE_URL` — the public name and HAPI's advertised base URL.
+- `GATEWAY_PORT` — host port for the gateway (default `8095`); the fronting proxy forwards here.
+- `ET_IG_PACKAGE_URL` etc. — the Ethiopia IGs. Default to the published Pages builds; point at a
+  `file:///igs/*.tgz` (built by `harness/scripts/refresh-core-ig.sh`) for offline use.
 
-## Deploy (e.g. `sandbox.fhir.et`)
+## Deploy
 
-On a server with Docker, a public IP, and ports **80 + 443** open:
+The sandbox doesn't manage TLS — the host's reverse proxy does. Run the containers and forward to
+the gateway (a single upstream that owns all routing).
 
-1. Point DNS: an `A` record `sandbox.fhir.et` → the server's IP.
-2. Clone the repo, then set `.env`:
-   ```ini
-   DOMAIN=sandbox.fhir.et
-   ACME_EMAIL=ops@fhir.et
+1. Clone the repo, `cp .env.prod.example .env` (sets `DOMAIN=sandbox.fhir.et`, `GATEWAY_PORT=8095`;
+   IGs stay on the published Pages builds, so no build/publisher on the server).
+2. `docker compose up -d` — the gateway listens on `127.0.0.1:8095` (never `80`/`443`, so no clash
+   with the host proxy).
+3. Point the host proxy at it. With nginx: `proxy_pass http://127.0.0.1:8095;` under your
+   `server_name` (TLS via Certbot). A ready block is in `deploy/nginx/sandbox.fhir.et.conf`:
+   ```bash
+   sudo cp deploy/nginx/sandbox.fhir.et.conf /etc/nginx/sites-available/sandbox.fhir.et
+   sudo ln -sf /etc/nginx/sites-available/sandbox.fhir.et /etc/nginx/sites-enabled/
+   sudo nginx -t && sudo systemctl reload nginx
+   sudo certbot --nginx -d sandbox.fhir.et   # once
    ```
-   Leave `ET_IG_PACKAGE_URL` unset so it uses the published Ethiopia IG (no local build needed on the server).
-3. `docker compose up -d`
 
-Caddy automatically obtains a Let's Encrypt certificate for the domain. HAPI advertises
-`https://sandbox.fhir.et/fhir` as its base URL, and CORS already allows `https://sandbox.fhir.et`.
 Verify: `curl -sI https://sandbox.fhir.et/fhir/metadata` and open `https://sandbox.fhir.et/docs/`.
 
-> The published Ethiopia IG keeps a fixed `0.9.0` version while it iterates, so to pick up a new
-> build force a reload: `docker compose down && rm -rf data && docker compose up -d`.
+> The published Ethiopia IGs keep fixed versions while they iterate, so to pick up a new build force
+> a reload: `docker compose down && rm -rf data && docker compose up -d`.
 
 ## Using it
 See the **[tutorial](docs/tutorial.html)** (served at `/docs/tutorial.html`) for validating
