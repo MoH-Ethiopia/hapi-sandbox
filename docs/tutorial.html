@@ -5,26 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Tutorial — Ethiopia FHIR Validation Sandbox</title>
 <style>
-  :root { --bg:#0e0f10; --panel:#17191b; --line:#2a2d30; --txt:#e8e9ea; --muted:#9aa0a6;
-          --ok:#2ea043; --bad:#e5534b; --info:#388bfd; --brand:#7c5cff; }
+  :root { --bg:#f6f7f9; --panel:#ffffff; --line:#e3e6ea; --txt:#1b2026; --muted:#5b6571;
+          --ok:#1a7f37; --bad:#cf222e; --info:#0969da; --brand:#6639ba; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--txt); font:14.5px/1.6 -apple-system,Segoe UI,Roboto,sans-serif; }
-  a { color:#79c0ff; text-decoration:none; } a:hover { text-decoration:underline; }
-  code { color:#79c0ff; font-family:ui-monospace,Menlo,monospace; font-size:.9em; }
-  header { padding:20px 26px; border-bottom:1px solid var(--line); }
+  a { color:var(--info); text-decoration:none; } a:hover { text-decoration:underline; }
+  code { color:#0a3069; background:#eef1f4; padding:0 4px; border-radius:4px; font-family:ui-monospace,Menlo,monospace; font-size:.9em; }
+  header { padding:20px 26px; border-bottom:1px solid var(--line); background:var(--panel); }
   header h1 { font-size:20px; margin:0 0 4px; }
   header p { margin:0; color:var(--muted); font-size:13px; }
   .wrap { padding:8px 26px 40px; max-width:880px; margin:0 auto; }
   h2 { font-size:16px; margin:30px 0 6px; display:flex; gap:9px; align-items:center; }
   h2 .n { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px;
           border-radius:7px; background:var(--brand); color:#fff; font-size:12px; font-weight:700; }
-  p.lead { color:#cdd2d6; }
-  pre { background:#0b0c0d; border:1px solid var(--line); border-radius:8px; padding:12px 14px; overflow:auto;
-        font:12.5px/1.5 ui-monospace,Menlo,monospace; color:#cfd3d6; }
-  pre .c { color:#7ee29a; } /* comment */ pre .k { color:#d2a8ff; }
-  .note { background:rgba(56,139,253,.08); border:1px solid #388bfd55; border-radius:8px; padding:10px 13px; color:#cdd2d6; font-size:13px; }
-  .ok { color:#7ee29a; } .bad { color:#ff9b95; }
-  table { border-collapse:collapse; width:100%; margin:8px 0; }
+  p.lead { color:#3b424b; }
+  pre { background:#f0f2f5; border:1px solid var(--line); border-radius:8px; padding:12px 14px; overflow:auto;
+        font:12.5px/1.5 ui-monospace,Menlo,monospace; color:#1b2026; }
+  pre .c { color:#1a7f37; } /* comment */ pre .k { color:#6639ba; }
+  .note { background:#ddf4ff; border:1px solid #54aeff88; border-radius:8px; padding:10px 13px; color:#1b2026; font-size:13px; }
+  .ok { color:#1a7f37; } .bad { color:#cf222e; }
+  table { border-collapse:collapse; width:100%; margin:8px 0; background:var(--panel); }
   th,td { border-bottom:1px solid var(--line); padding:.45rem .7rem; text-align:left; font-size:13px; }
   th { color:var(--muted); text-transform:uppercase; font-size:.72rem; }
   .pill { display:inline-block; background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:3px 11px; font-size:12px; }
@@ -100,12 +100,36 @@ X-ET-Validation-Report: &lt;url-encoded JSON of the issues&gt;</pre>
   and set the <code>host</code> variable to <code>https://sandbox.fhir.et</code>. It has ready-made
   <code>$validate</code> (good/bad), create-with-validation, and interceptor requests.</p>
 
-  <h2><span class="n">7</span> Conformance session (for system integrators)</h2>
-  <p>To test a real system end-to-end, point its FHIR base URL at
-  <code>https://sandbox.fhir.et/intercept</code> and use it normally. The sandbox operators can run a
-  live session that records every verdict and audits what was stored:</p>
-<pre><span class="c"># run by the sandbox team, in the repo:</span>
-cd harness && ./test-session.sh        <span class="c"># live ✓/✗ feed; Ctrl+C → audit + HTML dashboard</span></pre>
+  <h2><span class="n">7</span> Run a conformance session (live test + report)</h2>
+  <p>A <b>session</b> captures a window of traffic, scores every request, audits what was stored, and
+  produces an HTML report — the format used for the showcase and for onboarding a real system.</p>
+
+  <p><b>Step 1 — start it</b> (sandbox operators, in the repo):</p>
+<pre>cd harness
+sdk env                 <span class="c"># Java 21 (per .sdkmanrc)</span>
+./test-session.sh       <span class="c"># or: LABEL=hiv-demo ./test-session.sh</span></pre>
+  <p>It restarts the interceptor for a clean session and starts a live feed.</p>
+
+  <p><b>Step 2 — send traffic.</b> Point a real system's FHIR base URL at
+  <code>https://sandbox.fhir.et/intercept</code> and use it normally, or open the
+  <a href="/sim/simulator.html">simulator</a> and submit. Each request prints a live
+  <span class="ok">✓</span>/<span class="bad">✗</span> line. The interceptor records every verdict to
+  <code>harness/target/sessions/validation-reports.json</code> and the patients it saw to
+  <code>patients.txt</code>.</p>
+
+  <p><b>Step 3 — finish and read the report.</b> Press <code>Ctrl+C</code>. The session then produces:</p>
+  <table>
+    <tr><th>Output</th><th>What it contains</th></tr>
+    <tr><td>terminal summary</td><td><span class="ok">✓ N conformant</span> / <span class="bad">✗ N with findings</span> across the session</td></tr>
+    <tr><td>stored-data audit</td><td>re-validates everything stored for each seen patient via instance-level <code>$validate</code></td></tr>
+    <tr><td><b><code>harness/target/runs/&lt;timestamp&gt;/session.html</code></b></td><td>the report — auto-opens in your browser: a verdict table (click a row for its OperationOutcome issues) beside the embedded stored-data audit report</td></tr>
+  </table>
+  <p>Already have session data and just want to rebuild the report? <code>./test-session.sh report</code>.</p>
+
+  <div class="note"><b>One-off vs session.</b> A single POST to <code>/intercept</code> returns its
+  verdict inline in the <code>X-ET-Validation</code> / <code>X-ET-Validation-Report</code> response
+  headers (what the simulator shows per submit). The <code>session.html</code> dashboard is the
+  per-session rollup of all those calls <i>plus</i> the stored-data audit.</div>
 
   <h2><span class="n">8</span> Where the rules come from</h2>
   <p>All profiles, value sets, and code systems are the official Ethiopia Base IG —
